@@ -1,11 +1,12 @@
 /* src/App.css */
 
+/* --- Base & Typography --- */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f4f7f9;
+  background-color: #f0f2f5; /* Softer background */
   color: #333;
   margin: 0;
-  padding: 20px;
+  padding: 24px;
 }
 
 .App {
@@ -16,24 +17,38 @@ body {
 header {
   text-align: center;
   margin-bottom: 2rem;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 1rem;
 }
 
 header h1 {
-  color: #2c3e50;
+  color: #1a2a3a;
+  font-weight: 700;
 }
 
+header p {
+  color: #5a6a7a;
+  font-size: 1.1rem;
+}
+
+/* --- Main Controls Bar --- */
 .controls-container {
   background-color: #ffffff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   margin-bottom: 2rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
-  align-items: flex-end;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e8e8e8;
+}
+
+.filters-and-view {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .filter-group {
@@ -42,128 +57,187 @@ header h1 {
 }
 
 .filter-group label {
-  font-size: 0.9rem;
-  margin-bottom: 5px;
-  color: #555;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #5a6a7a;
 }
 
 .filter-group input {
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
+  padding: 8px 12px;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  min-width: 150px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.filter-group input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* --- NEW: Modern Segmented View Toggle --- */
+.view-toggle {
+  display: flex;
+  background-color: #e9ecef;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.view-toggle button {
+  padding: 6px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background-color: transparent;
+  color: #495057;
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.view-toggle button.active {
+  background-color: #ffffff;
+  color: #3498db;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* --- Score Button (Primary Action) --- */
 .score-button {
   padding: 10px 20px;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: #fff;
   background-color: #3498db;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .score-button:hover {
   background-color: #2980b9;
+  transform: translateY(-1px);
 }
 
 .score-button:disabled {
   background-color: #95a5a6;
   cursor: not-allowed;
+  transform: translateY(0);
 }
 
+/* --- Property Card & List --- */
 .property-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
+  gap: 24px;
 }
 
 .property-card {
   background-color: #fff;
-  border: 1px solid #e1e1e1;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.property-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.card-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 8px;
 }
 
 .property-card h3 {
-  margin: 0 0 10px 0;
-  font-size: 1.2rem;
-  color: #34495e;
+  margin: 0;
+  font-size: 1.15rem;
+  color: #1a2a3a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-info {
   display: flex;
   justify-content: space-between;
-  font-size: 1rem;
-  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.9rem;
+  color: #5a6a7a;
   padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .card-info span {
-  font-weight: 500;
+  font-weight: 600;
+  color: #333;
 }
 
 .grade {
   align-self: flex-start;
-  padding: 5px 15px;
+  padding: 4px 12px;
   border-radius: 15px;
   color: #fff;
   font-weight: bold;
-  font-size: 1.1rem;
-  margin-top: 10px;
+  font-size: 1rem;
+  margin-top: 8px;
 }
 
 /* Grade-specific coloring */
-.grade-A { background-color: #27ae60; } /* Green */
+.grade-A { background-color: #27ae60; }
 .grade-B { background-color: #2ecc71; }
-.grade-C { background-color: #f1c40f; } /* Yellow */
-.grade-D { background-color: #e67e22; } /* Orange */
-.grade-F { background-color: #e74c3c; } /* Red */
+.grade-C { background-color: #f1c40f; }
+.grade-D { background-color: #e67e22; }
+.grade-F { background-color: #e74c3c; }
 
-
-.card-image {
-  width: 100%;
-  height: 200px; /* Fixed height for consistency */
-  object-fit: cover; /* Ensures the image covers the area without distortion */
-  border-radius: 6px;
-  margin-bottom: 15px;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid #f3f3f3; /* Light grey circle */
-  border-top: 5px solid #3498db; /* Blue for the spinning part */
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 20px auto; /* Center the spinner */
-}
-
-/* This is the animation definition */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Modify the existing .loader class */
+/* Loader and Map styles remain the same */
 .loader {
   text-align: center;
   font-size: 1.5rem;
   padding: 40px;
-  /* NEW: We use flexbox to center the text and spinner vertically */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #e9ecef;
+  border-top: 5px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.map-container {
+  height: 70vh;
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  margin-bottom: 2rem;
+}
 
-/* ... (all your previous CSS styles) ... */
+
+
+
+
+
+
 
 /* --- NEW: Modal Styles --- */
 .modal-overlay {
@@ -273,37 +347,4 @@ header h1 {
     transform: translateY(0);
     opacity: 1;
   }
-}
-
-/* --- NEW: View Toggle Styles --- */
-.view-toggle {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1.5rem;
-  gap: 10px;
-}
-
-.view-toggle button {
-  padding: 10px 20px;
-  font-size: 1rem;
-  cursor: pointer;
-  border: 1px solid #3498db;
-  background-color: #fff;
-  color: #3498db;
-  border-radius: 5px;
-  transition: all 0.2s ease-in-out;
-}
-
-.view-toggle button.active {
-  background-color: #3498db;
-  color: #fff;
-}
-
-/* --- NEW: Map Container Styles --- */
-.map-container {
-  height: 70vh; /* Make the map take up a good portion of the viewport height */
-  width: 100%;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin-bottom: 2rem;
 }

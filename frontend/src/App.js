@@ -78,14 +78,26 @@ function App() {
         }
     }, [filters]);
 
-    // This useEffect is for cleanup. If the component unmounts, we must stop polling.
     useEffect(() => {
+        // This effect now correctly handles both the initial load and filter changes.
+        const handler = setTimeout(() => {
+            fetchProperties();
+        }, 500); // Debounce: Wait 500ms after user stops typing to fetch
+
+        return () => {
+            clearTimeout(handler); // Cleanup on unmount or if filters change again
+        };
+    }, [filters, fetchProperties]);
+    
+    useEffect(() => {
+        // This separate effect is just for mounting and unmounting the component once
+        fetchProperties(); // Initial fetch
         return () => {
             if (pollingInterval.current) {
                 clearInterval(pollingInterval.current);
             }
         };
-    }, []);
+    }, []); // Note the empty dependency array - this runs only once
 
     const handleScoreClick = async () => {
         setIsScoring(true);
@@ -138,19 +150,6 @@ function App() {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    
-    // This useEffect handles re-fetching data when filters are applied by the user.
-    // It's separate from the initial load effect.
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            fetchProperties();
-        }, 500); // Debounce: Wait 500ms after user stops typing to fetch
-
-        return () => {
-            clearTimeout(handler); // Cleanup on unmount or if filters change again
-        };
-    }, [filters, fetchProperties]);
-
     const handleCardClick = (property) => {
         setSelectedProperty(property);
     };
@@ -163,32 +162,31 @@ function App() {
         <div className="App">
             <header>
                 <h1>Flippit Deal Finder</h1>
-                <p>Find potential real estate investment deals in Warren.</p>
+                <p>Analyze and discover real estate investment deals in Warren.</p>
             </header>
 
 
-            {/* --- 3. ADD THE VIEW TOGGLE BUTTONS --- */}
-            <div className="view-toggle">
-                <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
-                    List View
-                </button>
-                <button className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>
-                    Map View
-                </button>
-            </div>
-
-
+            {/* --- NEW: Unified Controls Container --- */}
             <div className="controls-container">
+                <div className="filters-and-view">
                 <div className="filter-group">
                     <label htmlFor="min_roi">Min. ROI (%)</label>
                     <input type="number" id="min_roi" name="min_roi" value={filters.min_roi} onChange={handleFilterChange} placeholder="e.g., 15" />
                 </div>
                 <div className="filter-group">
-                    <label htmlFor="max_price">Max. List Price ($)</label>
+                    <label htmlFor="max_price">Max. List Price</label>
                     <input type="number" id="max_price" name="max_price" value={filters.max_price} onChange={handleFilterChange} placeholder="e.g., 200000" />
                 </div>
+                <div className="filter-group">
+                    <label>View</label>
+                    <div className="view-toggle">
+                    <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List</button>
+                    <button className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map</button>
+                    </div>
+                </div>
+                </div>
                 <button className="score-button" onClick={handleScoreClick} disabled={isScoring}>
-                    {isScoring ? 'Scoring in Progress...' : 'Score New Properties'}
+                {isScoring ? 'Scoring...' : 'Score New Properties'}
                 </button>
             </div>
 
