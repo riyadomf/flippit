@@ -145,7 +145,6 @@ def run_scoring_process():
     print("Starting background scoring process...")
     db: Session = next(get_db()) # Get a new DB session for this background task
     try:
-        time.sleep(4) 
         # 1. Get IDs of properties already in our database
         scored_ids = {res[0] for res in db.query(models.ScoredProperty.property_id).all()}
         print(f"Found {len(scored_ids)} properties already scored in the database.")

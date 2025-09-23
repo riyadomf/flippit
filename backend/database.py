@@ -2,16 +2,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
-# Define the connection URL for SQLite database.
-# The database will be created as a file named `flippit.db` in the same directory.
-DATABASE_URL = "sqlite:///./flippit.db"
+from config import settings
 
 # Create the SQLAlchemy engine.
 # connect_args is needed only for SQLite to allow it to be used by multiple threads,
 # which is what FastAPI does. This is a critical setting for this stack.
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+    settings.DATABASE_URL, connect_args={"check_same_thread": False}
 )
 
 # Each instance of the SessionLocal class will be a database session.

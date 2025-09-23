@@ -10,3 +10,5 @@ frontend/dist
 .DS_Store
 .env        
 
+*/__pycache__
+*.db

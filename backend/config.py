@@ -4,7 +4,7 @@ import os
 class Settings:
     # --- Database Configuration ---
     # The URL for SQLite database file.
-    DATABASE_URL: str = "sqlite:///./flippit.db"
+    DATABASE_URL: str = "sqlite:///./db/flippit.db"
 
     # --- Data File Paths ---
     # define the directory and filenames.
