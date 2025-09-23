@@ -274,3 +274,36 @@ header h1 {
     opacity: 1;
   }
 }
+
+/* --- NEW: View Toggle Styles --- */
+.view-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  gap: 10px;
+}
+
+.view-toggle button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  border: 1px solid #3498db;
+  background-color: #fff;
+  color: #3498db;
+  border-radius: 5px;
+  transition: all 0.2s ease-in-out;
+}
+
+.view-toggle button.active {
+  background-color: #3498db;
+  color: #fff;
+}
+
+/* --- NEW: Map Container Styles --- */
+.map-container {
+  height: 70vh; /* Make the map take up a good portion of the viewport height */
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}

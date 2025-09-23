@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 import PropertyModal from './PropertyModal';
+import MapComponent from './MapComponent';
 
 // API base URL - ensure your FastAPI backend is running on this port
 const API_URL = "http://127.0.0.1:8000";
@@ -48,8 +49,8 @@ function App() {
     const [isScoring, setIsScoring] = useState(false);
     const [filters, setFilters] = useState({ min_roi: '', max_price: '' });
     const [error, setError] = useState(null);
-    // ---  ADD STATE FOR THE MODAL ---
     const [selectedProperty, setSelectedProperty] = useState(null);
+    const [view, setView] = useState('list'); // 'list' or 'map'
     // useRef is perfect for storing interval IDs without causing re-renders.
     const pollingInterval = useRef(null);
 
@@ -165,6 +166,18 @@ function App() {
                 <p>Find potential real estate investment deals in Warren.</p>
             </header>
 
+
+            {/* --- 3. ADD THE VIEW TOGGLE BUTTONS --- */}
+            <div className="view-toggle">
+                <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
+                    List View
+                </button>
+                <button className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>
+                    Map View
+                </button>
+            </div>
+
+
             <div className="controls-container">
                 <div className="filter-group">
                     <label htmlFor="min_roi">Min. ROI (%)</label>
@@ -190,11 +203,20 @@ function App() {
             {error && <div className="loader" style={{color: 'red'}}>{error}</div>}
             
             {!isLoading && !isScoring && !error && (
-                <div className="property-list">
-                    {properties.length > 0 ? (
-                        properties.map(prop => <PropertyCard key={prop.property_id} property={prop} onCardClick={handleCardClick}/>)
+                <div>
+                    {/* --- CONDITIONAL RENDERING FOR LIST OR MAP --- */}
+                    {view === 'list' ? (
+                        <div className="property-list">
+                            {properties.length > 0 ? (
+                                properties.map(prop => (
+                                    <PropertyCard key={prop.property_id} property={prop} onCardClick={handleCardClick} />
+                                ))
+                            ) : (
+                                <p>No properties found matching your criteria.</p>
+                            )}
+                        </div>
                     ) : (
-                        <p>No properties found matching your criteria. Try scoring or adjusting filters.</p>
+                        <MapComponent properties={properties} />
                     )}
                 </div>
             )}
