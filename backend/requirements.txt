@@ -1,0 +1,6 @@
+# requirements.txt
+fastapi
+uvicorn[standard]
+pandas
+numpy
+python-multipart
