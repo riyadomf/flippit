@@ -2,19 +2,20 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
+import PropertyModal from './PropertyModal';
 
 // API base URL - ensure your FastAPI backend is running on this port
 const API_URL = "http://127.0.0.1:8000";
 
 // --- Child Components ---
 
-const PropertyCard = ({ property }) => {
+const PropertyCard = ({ property, onCardClick }) => {
     const getGradeClass = (grade) => `grade grade-${grade}`;
     const formatCurrency = (value) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
     return (
-        <div className="property-card">
-            {/* --- Image Display --- */}
+        // --- 3. ADD THE onClick HANDLER ---
+        <div className="property-card" onClick={() => onCardClick(property)}>
             {property.primary_photo && (
                 <img 
                     src={property.primary_photo} 
@@ -22,7 +23,6 @@ const PropertyCard = ({ property }) => {
                     className="card-image" 
                 />
             )}
-            
             <h3>{property.address}</h3>
             <div className="card-info">
                 List Price: <span>{formatCurrency(property.list_price)}</span>
@@ -48,7 +48,8 @@ function App() {
     const [isScoring, setIsScoring] = useState(false);
     const [filters, setFilters] = useState({ min_roi: '', max_price: '' });
     const [error, setError] = useState(null);
-    
+    // ---  ADD STATE FOR THE MODAL ---
+    const [selectedProperty, setSelectedProperty] = useState(null);
     // useRef is perfect for storing interval IDs without causing re-renders.
     const pollingInterval = useRef(null);
 
@@ -149,6 +150,14 @@ function App() {
         };
     }, [filters, fetchProperties]);
 
+    const handleCardClick = (property) => {
+        setSelectedProperty(property);
+    };
+
+    const handleCloseModal = () => {
+        setSelectedProperty(null);
+    };
+
     return (
         <div className="App">
             <header>
@@ -183,11 +192,16 @@ function App() {
             {!isLoading && !isScoring && !error && (
                 <div className="property-list">
                     {properties.length > 0 ? (
-                        properties.map(prop => <PropertyCard key={prop.property_id} property={prop} />)
+                        properties.map(prop => <PropertyCard key={prop.property_id} property={prop} onCardClick={handleCardClick}/>)
                     ) : (
                         <p>No properties found matching your criteria. Try scoring or adjusting filters.</p>
                     )}
                 </div>
+            )}
+
+            {/* ---  CONDITIONALLY RENDER THE MODAL --- */}
+            {selectedProperty && (
+                <PropertyModal property={selectedProperty} onClose={handleCloseModal} />
             )}
         </div>
     );
