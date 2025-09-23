@@ -1,6 +1,6 @@
 # scoring_logic.py
 
-from schemas import PropertyDataInput, ScoreOutput
+from schemas import PropertyDataInput, ScoreOutput, ScoreResultBase
 import re
 
 # ==============================================================================
@@ -75,34 +75,23 @@ def assign_grade(roi: float, risk_score: int) -> str:
 # This main function calls the modular pieces above to generate the final score.
 # ==============================================================================
 
-def score_property(property_data: PropertyDataInput, market_data: dict) -> ScoreOutput:
+def score_property(property_data: PropertyDataInput, market_data: dict) -> ScoreResultBase:
     """
-    Orchestrates the scoring process by calling modular calculation functions.
+    Orchestrates the scoring process and returns a result object without a database ID.
     """
-    # --- 1. Estimate Resale Price ---
     resale_price = estimate_resale_price(property_data.sqft, property_data.zip_code, market_data)
-
-    # --- 2. Estimate Costs ---
     reno_cost = estimate_renovation_cost(property_data.sqft, property_data.year_built, property_data.text)
     other_costs = calculate_other_costs(resale_price, property_data.tax, property_data.hoa_fee)
     total_costs = property_data.list_price + reno_cost + other_costs
-
-    # --- 3. Calculate Profit and ROI ---
     expected_profit = resale_price - total_costs
     total_cash_spent = property_data.list_price + reno_cost
     roi = (expected_profit / total_cash_spent) * 100 if total_cash_spent > 0 else 0
-
-    # --- 4. Assess Risk ---
     risk = assess_risk(property_data.year_built, property_data.days_on_mls, property_data.list_price, property_data.estimated_value)
-
-    # --- 5. Assign Grade ---
     grade = assign_grade(roi, risk)
-    
-    # --- 6. Generate Explanation ---
     explanation = f"Grade {grade} based on an estimated ROI of {roi:.1f}% and a risk score of {risk}/10. Resale value estimated at ${resale_price:,.0f}."
 
-    # --- 7. Assemble and Return the Final Score Object ---
-    return ScoreOutput(
+    # UPDATED: Returns the base schema object, which does not have an 'id' field.
+    return ScoreResultBase(
         property_id=property_data.property_id,
         address=f"{property_data.full_street_line}, {property_data.city}, {property_data.state}",
         list_price=property_data.list_price,
@@ -115,5 +104,6 @@ def score_property(property_data: PropertyDataInput, market_data: dict) -> Score
         overall_grade=grade,
         explanation=explanation,
         latitude=property_data.latitude,
-        longitude=property_data.longitude
+        longitude=property_data.longitude,
+        primary_photo=property_data.primary_photo
     )

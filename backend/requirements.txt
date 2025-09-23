@@ -3,4 +3,5 @@ fastapi
 uvicorn[standard]
 pandas
 numpy
+SQLAlchemy
 python-multipart

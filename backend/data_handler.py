@@ -1,15 +1,14 @@
 # data_handler.py
 
 import pandas as pd
-import numpy as np
+from config import settings
 
 # This dictionary will hold pre-calculated market data in memory.
 market_data_store = {}
 
-def load_market_data(filepath: str = "dataset/sold_properties.csv"):
+def load_market_data(filepath: str = settings.SOLD_PROPERTIES_CSV):
     """
     Loads and processes the sold properties data to establish a market baseline.
-    This function is designed to be called once at application startup.
     """
     try:
         sold_df = pd.read_csv(filepath)
