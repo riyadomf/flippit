@@ -2,6 +2,7 @@
 
 import pandas as pd
 from config import settings
+from scoring_logic import get_size_range
 
 # This dictionary will hold pre-calculated market data in memory.
 market_data_store = {}
@@ -15,15 +16,32 @@ def load_market_data(filepath: str = settings.SOLD_PROPERTIES_CSV):
         
         # --- Data Cleaning (Based on EDA findings) ---
         sold_df.dropna(subset=['price_per_sqft'], inplace=True)
-        sold_df = sold_df[sold_df['price_per_sqft'] > 100]  # Remove unrealistic low values
+        sold_df = sold_df[(sold_df['price_per_sqft'] > 50) & (sold_df['price_per_sqft'] < 500)] # Remove unrealistic low values
+
+        # Feature Engineering 
+        # Assign each sold property to a size range using our helper function
+        sold_df['size_range'] = sold_df['sqft'].apply(get_size_range)
 
         # --- Calculations for Model ---
-        median_price_per_sqft_by_zip = sold_df.groupby('zip_code')['price_per_sqft'].median()
-        overall_median_price_per_sqft = sold_df['price_per_sqft'].median()
+        # 1. Primary Metric: Group by ZIP and size_range
+        median_by_zip_and_size = sold_df.groupby(['zip_code', 'size_range'])['price_per_sqft'].median()
+
+        # 2. Fallback Metric: Group by just ZIP
+        median_by_zip = sold_df.groupby('zip_code')['price_per_sqft'].median()
+        
+        # 3. Global Fallback Metric: Overall median
+        overall_median = sold_df['price_per_sqft'].median()
 
         # Store the processed data in dictionary for the app to use
-        market_data_store['median_by_zip'] = median_price_per_sqft_by_zip.to_dict()
-        market_data_store['overall_median'] = overall_median_price_per_sqft
+        nested_market_data = {}
+        for (zip_code, size_range), median_val in median_by_zip_and_size.items():
+            if zip_code not in nested_market_data:
+                nested_market_data[zip_code] = {}
+            nested_market_data[zip_code][size_range] = median_val
+            
+        market_data_store['median_by_zip_and_size'] = nested_market_data
+        market_data_store['median_by_zip'] = median_by_zip.to_dict()
+        market_data_store['overall_median'] = overall_median
         
         print("Market data loaded and processed successfully.")
         
