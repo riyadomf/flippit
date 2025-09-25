@@ -12,3 +12,6 @@ frontend/dist
 
 */__pycache__
 *.db
+
+*.pkl
+*/*.pkl
