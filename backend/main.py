@@ -58,11 +58,6 @@ def run_scoring_process():
     try:
         scored_ids = {res[0] for res in db.query(models.ScoredProperty.property_id).all()}
         forsale_df = pd.read_csv(settings.FOR_SALE_PROPERTIES_CSV)
-
-        # Simply deduplicate
-        forsale_df['list_date'] = pd.to_datetime(forsale_df['list_date'], errors='coerce')
-        forsale_df.sort_values(by='list_date', ascending=False, inplace=True)
-        forsale_df.drop_duplicates(subset=['property_id'], keep='first', inplace=True)
         
         new_properties_df = forsale_df[~forsale_df['property_id'].isin(scored_ids)]
         
@@ -71,39 +66,22 @@ def run_scoring_process():
             task_status['is_scoring'] = False
             db.close()
             return
+        
+        # Use the processor to get a list of clean, Pydantic-ready dictionaries
+        clean_property_dicts = processor.prepare_inference_data(new_properties_df)
+        print(f"Found and cleaned {len(clean_property_dicts)} new properties to score.")
 
-        for _, row in new_properties_df.iterrows():
+        for prop_dict in clean_property_dicts:
             try:
-                # Let Pydantic handle initial parsing and default values from schema
-                property_dict = row.to_dict()
+                # This call is now guaranteed to be safe and valid
+                property_input = schemas.PropertyDataInput(**prop_dict)
                 
-                # Convert NaNs to None (JSON/Pydantic friendly) and handle data types
-                for key, value in property_dict.items():
-                    if pd.isna(value):
-                        property_dict[key] = None # Pydantic handles Optional[type] = None
-
-                # Specifically fix the list_date format if it's not None
-                if property_dict.get('list_date'):
-                    property_dict['list_date'] = property_dict['list_date'].strftime('%Y-%m-%d')
-
-                # Ensure integer fields are integers, defaulting to 0 if None
-                for key in ['beds', 'full_baths', 'half_baths', 'stories', 'parking_garage', 'days_on_mls']:
-                    property_dict[key] = int(property_dict.get(key) or 0)
-
-                # Ensure float fields are floats, defaulting to 0.0 if None
-                for key in ['list_price', 'sqft', 'hoa_fee', 'tax', 'estimated_value', 'lot_sqft', 'latitude', 'longitude']:
-                     property_dict[key] = float(property_dict.get(key) or 0.0)
-
-                # 3. Create the Pydantic model from the CLEANED dictionary
-                property_input = schemas.PropertyDataInput(**property_dict)
-                
-                # The scoring logic now handles all complex transformations internally
                 scored_output = scoring_logic.score_property(property_input, data_handler.model_store)
                 
-                db_property = models.ScoredProperty(**scored_output.model_dump())
+                db_property = models.ScoredProperty(**scored_output.dict())
                 db.add(db_property)
             except Exception as e:
-                print(f"Could not score property {row.get('property_id')}: {e}")
+                print(f"Could not score property {prop_dict.get('property_id')}: {e}")
             
         db.commit()
         print(f"Successfully scored and saved {len(new_properties_df)} new properties.")

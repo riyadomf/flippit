@@ -3,6 +3,7 @@
 Handles the complete data cleaning and feature engineering pipeline.
 This script is used by train_model.py (offline) and scoring_logic.py (online).
 """
+from typing import List
 import pandas as pd
 from datetime import datetime
 
@@ -160,3 +161,43 @@ class DataProcessor:
         y = df_transformed[self.config.TARGET_COLUMN] if self.config.TARGET_COLUMN in df_transformed.columns else None
             
         return X, y
+    
+    
+    def prepare_inference_data(self, df_raw: pd.DataFrame) -> List[dict]:
+        """
+        Public method that takes a raw for-sale DataFrame, cleans it,
+        and returns a list of Pydantic-ready dictionaries.
+        """
+        df = df_raw.copy()
+        
+        # Deduplicate
+        df['list_date'] = pd.to_datetime(df['list_date'], errors='coerce')
+        df.sort_values(by='list_date', ascending=False, inplace=True)
+        df.drop_duplicates(subset=['property_id'], keep='first', inplace=True)
+        
+        # Impute with LEARNED values from the fitted processor
+        df['estimated_value'].fillna(df['list_price'], inplace=True)
+        df.fillna(self.imputation_values, inplace=True)
+
+        # Explicitly handle data types to create Pydantic-safe dictionaries
+        # This is the manual cleaning logic, now moved to its rightful home.
+        dict_records = df.to_dict(orient='records')
+        clean_records = []
+        for record in dict_records:
+            clean_record = {}
+            for key, value in record.items():
+                if pd.isna(value):
+                    clean_record[key] = None
+                else:
+                    clean_record[key] = value
+            
+            if clean_record.get('list_date'):
+                clean_record['list_date'] = clean_record['list_date'].strftime('%Y-%m-%d')
+
+            for key in ['beds', 'full_baths', 'half_baths', 'stories', 'parking_garage', 'days_on_mls', 'property_id', 'zip_code', 'year_built']:
+                 if key in clean_record:
+                    clean_record[key] = int(clean_record.get(key) or 0)
+            
+            clean_records.append(clean_record)
+            
+        return clean_records
