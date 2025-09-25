@@ -5,3 +5,6 @@ pandas
 numpy
 SQLAlchemy
 python-multipart
+scikit-learn
+xgboost
+joblib

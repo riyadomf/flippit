@@ -1,8 +1,14 @@
 # schemas.py
+"""
+Defines the Pydantic models for data validation and serialization.
+These models define the shape of the data for API requests and responses.
+"""
 from pydantic import BaseModel
 from typing import Optional
+import datetime
 
 class PropertyDataInput(BaseModel):
+    """Schema for the raw property data used as input for scoring."""
     property_id: int
     list_price: float
     list_date: Optional[str] = None
@@ -19,6 +25,7 @@ class PropertyDataInput(BaseModel):
     state: Optional[str] = ""
     beds: Optional[int] = 0
     full_baths: Optional[int] = 0
+    half_baths: Optional[int] = 0
     latitude: Optional[float] = 0.0
     longitude: Optional[float] = 0.0
     primary_photo: Optional[str] = ""
@@ -42,7 +49,9 @@ class ScoreResultBase(BaseModel):
 
 
 class ScoreOutput(ScoreResultBase):
+    """Final output schema including database fields, for sending data to the client."""
     id: int
+    created_at: datetime.datetime
     
     class Config:
-        orm_mode = True
+        orm_mode = True # Enables the model to be created from an ORM object

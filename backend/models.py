@@ -1,8 +1,13 @@
 # models.py
-from sqlalchemy import Column, Integer, String, Float
+"""
+Defines the SQLAlchemy ORM models, representing the tables in the database.
+"""
+from sqlalchemy import Column, Integer, String, Float,DateTime
 from database import Base
+import datetime
 
 class ScoredProperty(Base):
+    """SQLAlchemy model for a scored property."""
     __tablename__ = "scored_properties"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -19,4 +24,5 @@ class ScoredProperty(Base):
     explanation = Column(String)
     latitude = Column(Float)
     longitude = Column(Float)
-    primary_photo = Column(String)
+    primary_photo = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
