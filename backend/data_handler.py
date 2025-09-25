@@ -9,13 +9,13 @@ from config import settings
 model_store = {}
 
 def load_resale_model():
-    """Loads the pre-trained resale price model into the model_store."""
+    """Loads the pre-trained model and the fitted DataProcessor."""
     try:
         payload = joblib.load(settings.MODEL_PATH)
         model_store['model'] = payload['model']
-        model_store['columns'] = payload['training_columns']
-        print("V2 resale prediction model loaded successfully.")
+        model_store['processor'] = payload['processor'] # Load the processor
+        print("V2 resale prediction model and data processor loaded successfully.")
     except FileNotFoundError:
         print(f"FATAL ERROR: Model file '{settings.MODEL_PATH}' not found.")
         model_store['model'] = None
-        model_store['columns'] = None
+        model_store['processor'] = None

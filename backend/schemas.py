@@ -7,28 +7,41 @@ from pydantic import BaseModel
 from typing import Optional
 import datetime
 
+
 class PropertyDataInput(BaseModel):
-    """Schema for the raw property data used as input for scoring."""
+    """
+    V2 Schema: Includes ALL raw features needed for preprocessing before prediction.
+    """
     property_id: int
     list_price: float
-    list_date: Optional[str] = None
     sqft: float
     zip_code: int
     year_built: int
+    
+    # Core features now required by the V2 model
+    beds: Optional[int] = 0
+    full_baths: Optional[int] = 0
+    half_baths: Optional[int] = 0
+    lot_sqft: Optional[float] = 0.0
+    neighborhoods: Optional[str] = "Unknown" # Provide a safe default
+    stories: Optional[int] = 1 # Provide a safe default
+    parking_garage: Optional[int] = 0 # Provide a safe default
+    
+    # Features for other scoring modules
     hoa_fee: Optional[float] = 0.0
     tax: Optional[float] = 0.0
     text: Optional[str] = ""
     estimated_value: Optional[float] = 0.0
     days_on_mls: Optional[int] = 0
+    
+    # Pass-through features for the final output
     full_street_line: Optional[str] = ""
     city: Optional[str] = ""
     state: Optional[str] = ""
-    beds: Optional[int] = 0
-    full_baths: Optional[int] = 0
-    half_baths: Optional[int] = 0
     latitude: Optional[float] = 0.0
     longitude: Optional[float] = 0.0
-    primary_photo: Optional[str] = ""
+    primary_photo: Optional[str] = None
+    list_date: Optional[str] = None
     
 
 class ScoreResultBase(BaseModel):

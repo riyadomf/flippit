@@ -5,8 +5,6 @@ of a property's flip score.
 """
 import pandas as pd
 from schemas import PropertyDataInput, ScoreResultBase
-from preprocessing import get_size_range
-from datetime import datetime
 
 
 # --- Tunable Constants for Scoring Logic ---
@@ -20,27 +18,19 @@ class ScoringConstants:
 
 
 # --- Calculation Modules ---
-    current_year = datetime.now().year
 
-def estimate_resale_price_v2(property_data: PropertyDataInput, model_store: dict) -> float:
-    """V2: Estimates resale price using the pre-trained XGBoost model."""
+def estimate_resale_price(property_data: PropertyDataInput, model_store: dict) -> float:
+    """Estimates resale price using the pre-trained model and processor."""
     model = model_store.get('model')
-    training_columns = model_store.get('columns')
-    if not model or not training_columns: return 0.0
+    processor = model_store.get('processor')
+    if not model or not processor: return 0.0
 
-    property_df = pd.DataFrame([property_data.dict()])
+    property_df = pd.DataFrame([property_data.model_dump()])
+
+    # The processor now handles all data preparation for the model
+    X_processed, _ = processor.transform(property_df)
     
-    # Engineer features for the single property
-    property_df['property_age'] = 2025 - property_df['year_built']
-    property_df['total_baths'] = property_df['full_baths'] + (0.5 * property_df.get('half_baths', 0))
-    property_df['size_range'] = property_df['sqft'].apply(get_size_range)
-    
-    # One-hot encode and align columns to match training data
-    categorical_features = ['zip_code', 'neighborhoods', 'size_range']
-    property_df_encoded = pd.get_dummies(property_df, columns=categorical_features, dtype=int)
-    property_df_aligned = property_df_encoded.reindex(columns=training_columns, fill_value=0)
-    
-    prediction = model.predict(property_df_aligned)
+    prediction = model.predict(X_processed)
     return float(prediction[0])
 
 
@@ -50,7 +40,7 @@ def estimate_renovation_cost(sqft: float, year_built: int, description: str) -> 
     description = str(description).lower()
     consts = ScoringConstants
     
-    # V2 LOGIC: This model now uses keywords for both high AND low cost.
+    # This model now uses keywords for both high AND low cost.
     high_cost_keywords = ['fixer-upper', 'tlc', 'as-is', 'rehab', 'investor special']
     low_cost_keywords = ['fully renovated', 'newly updated', 'move-in ready']
     
@@ -94,7 +84,7 @@ def assign_grade(roi: float, risk: int) -> str:
 
 def score_property(property_data: PropertyDataInput, model_store: dict) -> ScoreResultBase:
     """Orchestrates the full scoring process using the V2 resale model."""
-    resale_price = estimate_resale_price_v2(property_data, model_store)
+    resale_price = estimate_resale_price(property_data, model_store)
     reno_cost = estimate_renovation_cost(property_data.sqft, property_data.year_built, property_data.text)
     other_costs = calculate_other_costs(resale_price, property_data.tax, property_data.hoa_fee)
     
