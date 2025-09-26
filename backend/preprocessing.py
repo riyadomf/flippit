@@ -75,59 +75,34 @@ class DataProcessor:
         print("--- Fitting DataProcessor on training data ---")
         df = df_raw[self.config.INITIAL_FEATURE_COLS].copy()
         
-        df_clean = self._clean_and_filter(df, is_training=True)
+        df = self._clean_and_filter(df, is_training=True)
 
 
         # Learn ALL possible values of categorical feature from the full, cleaned dataset
-        df_clean['size_range'] = df_clean['sqft'].apply(get_size_range)
+        df['size_range'] = df['sqft'].apply(get_size_range)
         for col in self.categorical_features_to_encode:
-            self._fitted_categories[col] = df_clean[col].dropna().unique().tolist()
+            self._fitted_categories[col] = df[col].dropna().unique().tolist()
         print(f"Learned categories for: {list(self._fitted_categories.keys())}")
 
-        # Learn imputation values from the cleaned dataset
         self.imputation_values = {
-            'beds': df_clean['beds'].median(), 'full_baths': df_clean['full_baths'].median(),
-            'half_baths': 0, 'lot_sqft': df_clean['lot_sqft'].median(),
-            'year_built': df_clean['year_built'].median(),
-            'stories': df_clean['stories'].mode()[0], 'parking_garage': df_clean['parking_garage'].mode()[0],
-            'neighborhoods': 'Unknown', 'text': "", 'list_price': df_clean['list_price'].median(),
-            'list_price': df['list_price'].median(), 'estimated_value': df_clean['estimated_value'].median()
+            'beds': df['beds'].mode(),
+            'full_baths': df['full_baths'].mode(),
+            'half_baths': df['half_baths'].mode(),
+            'year_built': df['year_built'].mode(),
+            'stories': df['stories'].mode()[0],
+            'parking_garage': df['parking_garage'].mode()[0],
+            'lot_sqft': df['lot_sqft'].median(),
+            'hoa_fee': 0.0,
+            'neighborhoods': 'Unknown',
+            'text': "",
+            'list_price': df['list_price'].median(),
+            'estimated_value': df['estimated_value'].median()
         }
-        print("Imputation values learned.")
-
-        # # 2. IMPUTATION
-        # print("Imputing missing values with granular medians/modes...")
-        # # Fill based on ZIP code median for key housing stats
-        # for col in ['beds', 'full_baths', 'lot_sqft', 'year_built']:
-        #     df[col] = df.groupby('zip_code')[col].transform(lambda x: x.fillna(x.median()))
-        
-        # # Fallback for any ZIP codes that had no data
-        # df.fillna({'beds': df['beds'].median(), 'full_baths': df['full_baths'].median(),
-        #             'lot_sqft': df['lot_sqft'].median(), 'year_built': df['year_built'].median(),
-        #             'stories': df['stories'].mode()[0], 'parking_garage': df['parking_garage'].mode()[0]},
-        #             inplace=True)
-        
-        # imputation_values = {
-        #     'half_baths': 0, 'hoa_fee': 0.0, 'neighborhoods': 'Unknown',
-        #     'text': ""
-        # }
-        # df.fillna(imputation_values, inplace=True)
-
-        # df['estimated_value'].fillna(df['list_price'], inplace=True)
-        # # Now, fill remaining NaNs with the median sold_price of their ZIP code
-        # df['estimated_value'] = df.groupby('zip_code')['estimated_value'].transform(lambda x: x.fillna(x.median()))
-        # # Final global fallback for any ZIP that had no data at all
-        # df['estimated_value'].fillna(df[config.TARGET_COLUMN].median(), inplace=True)
-
-        # df['list_price'].fillna(df['estimated_value'], inplace=True)
-        # df['list_price'].fillna(df[config.TARGET_COLUMN].median(), inplace=True)
-
-        # print("Missing values imputed successfully.")
         
 
         # Fit and Store Training Columns
         # Perform a dry run on the clean (but unfiltered) data to get all possible columns
-        X_schema, _ = self.transform(df_clean)
+        X_schema, _ = self.transform(df)
         self.training_columns = X_schema.columns.tolist()
         print(f"--- DataProcessor fitting complete. Final schema has {len(self.training_columns)} features. ---")
 

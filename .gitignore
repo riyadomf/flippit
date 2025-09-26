@@ -19,3 +19,6 @@ frontend/dist
 .vscode
 .vscode/*
 *.pkl
+*/resale_model.pkl
+backend/resale_model.pkl
+backend/resale_model.pkl
