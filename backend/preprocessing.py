@@ -14,18 +14,18 @@ class PreprocessingConfig:
     INITIAL_FEATURE_COLS = [
         "property_id", "text", "zip_code", "neighborhoods",
         "beds", "full_baths", "half_baths", "sqft", "year_built",
-        "list_price", "list_date", "sold_price", "estimated_value", "tax", "lot_sqft",
+        "list_price", "list_date", "sold_price", "estimated_value", "lot_sqft",
         "stories", "hoa_fee", "parking_garage"
     ]
-    BASE_FEATURES = [
-        'sqft', 'beds', 'stories', 'hoa_fee', 'estimated_value', 'parking_garage',
-        'property_age', 'total_baths',
-        # And now we add the condition flags as features
-        'is_fixer_upper', 'is_renovated'
+    BASE_MODEL_FEATURES = [
+        'sqft', 'beds', 'stories', 'estimated_value', 'parking_garage',
+        'lot_sqft', 'property_age', 'total_baths',
+        # Condition and finish flags are also base features
+        'is_fixer_upper', 'is_renovated', 'has_granite', 'has_hardwood', 'has_stainless'
     ]
 
     TARGET_COLUMN = 'sold_price'
-    PRICE_PER_SQFT_OUTLIER_BOUNDS = (75, 350)
+    PRICE_PER_SQFT_OUTLIER_BOUNDS = (20, 350)
     CURRENT_YEAR = datetime.now().year
 
     
@@ -44,21 +44,21 @@ class DataProcessor:
     """A class to handle all data preprocessing for both training and inference."""
     def __init__(self):
         self.config = PreprocessingConfig()
-        self.high_cost_search_term = '|'.join(settings.HIGH_COST_KEYWORDS)
-        self.low_cost_search_term = '|'.join(settings.LOW_COST_KEYWORDS)
         self.imputation_values = {}
         self.training_columns = []
         self._fitted_categories = {} # To store all possible categories
 
 
     def _clean_and_filter(self, df: pd.DataFrame, is_training: bool = False) -> pd.DataFrame:
-        """Handles initial cleaning, deduplication, and (optional) outlier removal."""
+        """Handles initial cleaning, deduplication, and outlier removal."""
         df_clean = df.copy()
+
+        # Deduplicate based on most recent listing date
         df_clean['list_date'] = pd.to_datetime(df_clean['list_date'], errors='coerce')
         df_clean.sort_values(by='list_date', ascending=False, inplace=True)
         df_clean.drop_duplicates(subset=['property_id'], keep='first', inplace=True)
 
-        if is_training:
+        if self.config.TARGET_COLUMN in df_clean.columns:
             df_clean.dropna(subset=[self.config.TARGET_COLUMN, 'sqft'], inplace=True)
             df_clean = df_clean[(df_clean['sqft'] > 100) & (df_clean[self.config.TARGET_COLUMN] > 10000)].copy()
             df_clean['price_per_sqft'] = df_clean[self.config.TARGET_COLUMN] / df_clean['sqft']
@@ -72,14 +72,21 @@ class DataProcessor:
         print("--- Fitting DataProcessor on training data ---")
         df = df_raw[self.config.INITIAL_FEATURE_COLS].copy()
         
-        # 2. Clean, filter to "gold standard" for learning imputation values
         df_clean = self._clean_and_filter(df, is_training=True)
 
-        # 3. Learn imputation values from the clean subset
+
+        # Learn ALL possible values of categorical feature from the full, cleaned dataset
+        df_clean['size_range'] = df_clean['sqft'].apply(get_size_range)
+        self.categorical_features_to_encode = ['zip_code', 'neighborhoods', 'size_range']
+        for col in self.categorical_features_to_encode:
+            self._fitted_categories[col] = df_clean[col].dropna().unique().tolist()
+        print(f"Learned categories for: {list(self._fitted_categories.keys())}")
+
+        # Learn imputation values from the cleaned dataset
         self.imputation_values = {
             'beds': df_clean['beds'].median(), 'full_baths': df_clean['full_baths'].median(),
             'half_baths': 0, 'lot_sqft': df_clean['lot_sqft'].median(),
-            'year_built': df_clean['year_built'].median(), 'hoa_fee': 0.0,
+            'year_built': df_clean['year_built'].median(),
             'stories': df_clean['stories'].mode()[0], 'parking_garage': df_clean['parking_garage'].mode()[0],
             'neighborhoods': 'Unknown', 'text': "", 'list_price': df_clean['list_price'].median(),
             'estimated_value': df_clean['estimated_value'].median()
@@ -130,8 +137,6 @@ class DataProcessor:
         # Impute missing values using LEARNED values
         # Special fallback for estimated_value to use list_price first
         df_transformed['estimated_value'].fillna(df_transformed['list_price'], inplace=True)
-        
-        # Apply all other learned imputation values
         df_transformed.fillna(self.imputation_values, inplace=True)
 
         # Engineer Features
@@ -144,17 +149,17 @@ class DataProcessor:
         # 3. One-Hot Encode using the LEARNED categories to ensure consistency
         for col, categories in self._fitted_categories.items():
             df_transformed[col] = pd.Categorical(df_transformed[col], categories=categories)
-        df_transformed = pd.get_dummies(df_transformed, columns=self._fitted_categories.keys(), prefix=self._fitted_categories.keys(), dtype=int)
-        
+        df_transformed = pd.get_dummies(df_transformed, columns=self.categorical_features_to_encode, prefix=self.categorical_features_to_encode, dtype=int)
+
+
         # Final Feature Selection and Alignment
         if self.training_columns:
             X = df_transformed.reindex(columns=self.training_columns, fill_value=0)
         else: # This path is only for the schema-defining dry run inside .fit()
-            base_features = self.config.BASE_FEATURES.copy()
-            premium_keyword_features = list(settings.PREMIUM_FINISH_KEYWORDS.keys())
-            ohe_features = [col for col in df_transformed.columns if any(cat in col for cat in self._fitted_categories.keys())]
-            
-            final_feature_list = base_features + premium_keyword_features + ohe_features
+            base_features = self.config.BASE_MODEL_FEATURES.copy()
+            ohe_features = [col for col in df_transformed.columns if any(cat in col for cat in self.categorical_features_to_encode)]
+            final_feature_list = base_features + ohe_features
+
             X = df_transformed[[col for col in final_feature_list if col in df_transformed.columns]]
 
         y = df_transformed[self.config.TARGET_COLUMN] if self.config.TARGET_COLUMN in df_transformed.columns else None
