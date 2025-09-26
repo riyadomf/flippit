@@ -36,11 +36,22 @@ def train_resale_model():
     print(f"Data split into {len(X_train)} for training pool and {len(X_holdout)} for holdout pool.")
 
     # 4. Identify the "Gold Standard" rows within the HOLDOUT set for evaluation
-    # We use the 'is_fixer_upper' column that was engineered by the processor.
-    gold_standard_holdout_indices = X_holdout[X_holdout['is_fixer_upper'] == 0].index
+    # This gives us the most relevant possible evaluation metric for an ARV model.
+    gold_standard_holdout_indices = X_holdout[
+        (X_holdout['is_fixer_upper'] == 0) & (X_holdout['is_renovated'] == 1)
+    ].index
+
     
     X_test_final = X_holdout.loc[gold_standard_holdout_indices]
     y_test_final = y_holdout.loc[gold_standard_holdout_indices]
+
+
+    # Fallback if no ARV-like properties are found
+    if len(X_test_final) == 0:
+        print("WARNING: No 'gold standard' properties found in the holdout set for evaluation.")
+        gold_standard_holdout_indices = X_holdout[X_holdout['is_fixer_upper'] == 0].index
+        X_test_final = X_holdout.loc[gold_standard_holdout_indices]
+        y_test_final = y_holdout.loc[gold_standard_holdout_indices]
     
     print(f"Model will train on {len(X_train)} properties.")
     print(f"Model will be evaluated on {len(X_test_final)} unseen 'gold standard' properties.")

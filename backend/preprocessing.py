@@ -19,10 +19,12 @@ class PreprocessingConfig:
     ]
     BASE_MODEL_FEATURES = [
         'sqft', 'beds', 'stories', 'estimated_value', 'parking_garage',
-        'lot_sqft', 'property_age', 'total_baths',
+        'lot_sqft', 'property_age', 'list_price', 'total_baths',
         # Condition and finish flags are also base features
         'is_fixer_upper', 'is_renovated', 'has_granite', 'has_hardwood', 'has_stainless'
     ]
+
+    CATEGORICAL_FEATURES = ['zip_code', 'neighborhoods', 'size_range']
 
     TARGET_COLUMN = 'sold_price'
     PRICE_PER_SQFT_OUTLIER_BOUNDS = (20, 350)
@@ -47,6 +49,7 @@ class DataProcessor:
         self.imputation_values = {}
         self.training_columns = []
         self._fitted_categories = {} # To store all possible categories
+        self.categorical_features_to_encode = self.config.CATEGORICAL_FEATURES.copy()
 
 
     def _clean_and_filter(self, df: pd.DataFrame, is_training: bool = False) -> pd.DataFrame:
@@ -77,7 +80,6 @@ class DataProcessor:
 
         # Learn ALL possible values of categorical feature from the full, cleaned dataset
         df_clean['size_range'] = df_clean['sqft'].apply(get_size_range)
-        self.categorical_features_to_encode = ['zip_code', 'neighborhoods', 'size_range']
         for col in self.categorical_features_to_encode:
             self._fitted_categories[col] = df_clean[col].dropna().unique().tolist()
         print(f"Learned categories for: {list(self._fitted_categories.keys())}")
@@ -89,7 +91,7 @@ class DataProcessor:
             'year_built': df_clean['year_built'].median(),
             'stories': df_clean['stories'].mode()[0], 'parking_garage': df_clean['parking_garage'].mode()[0],
             'neighborhoods': 'Unknown', 'text': "", 'list_price': df_clean['list_price'].median(),
-            'estimated_value': df_clean['estimated_value'].median()
+            'list_price': df['list_price'].median(), 'estimated_value': df_clean['estimated_value'].median()
         }
         print("Imputation values learned.")
 
@@ -204,4 +206,5 @@ class DataProcessor:
             
             clean_records.append(clean_record)
             
+        print(f"Prepared {len(clean_records)} clean property records for inference.")
         return clean_records

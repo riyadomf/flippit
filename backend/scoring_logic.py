@@ -28,11 +28,20 @@ def estimate_resale_price(property_data: PropertyDataInput, model_store: dict) -
 
     property_df = pd.DataFrame([property_data.model_dump()])
 
-    property_df['is_fixer_upper'] = 0 # Assume it's NOT a fixer-upper
-    property_df['is_renovated'] = 1   # Assume it IS renovated
-
     # The processor now handles all data preparation for the model
     X_processed, _ = processor.transform(property_df)
+
+
+    # Manually override the condition flags in the FINAL feature matrix.
+    # Find the final one-hot encoded columns and set them to represent
+    # the ideal "renovated" state. This asks the model a clear question:
+    # "What would the price of this property be IF it were renovated?"
+    
+    if 'is_fixer_upper' in X_processed.columns:
+        X_processed['is_fixer_upper'] = 0
+    
+    if 'is_renovated' in X_processed.columns:
+        X_processed['is_renovated'] = 1
     
     prediction = model.predict(X_processed)
     return float(prediction[0])
@@ -90,7 +99,7 @@ def assign_grade(roi: float, risk: int) -> str:
 # --- Orchestrator ---
 
 def score_property(property_data: PropertyDataInput, model_store: dict) -> ScoreResultBase:
-    """Orchestrates the full scoring process using the V2 resale model."""
+    """Orchestrates the full scoring process using the resale model."""
     resale_price = estimate_resale_price(property_data, model_store)
     reno_cost = estimate_renovation_cost(property_data.sqft, property_data.year_built, property_data.text)
     other_costs = calculate_other_costs(resale_price, property_data.tax, property_data.hoa_fee)
@@ -104,7 +113,7 @@ def score_property(property_data: PropertyDataInput, model_store: dict) -> Score
     grade = assign_grade(roi, risk)
     
     explanation = (f"Grade {grade} based on an estimated ROI of {roi:.1f}% and a risk score of {risk}/10. "
-                   f"Resale value estimated by V2 model at ${resale_price:,.0f}.")
+                   f"Resale value estimated by the model at ${resale_price:,.0f}.")
 
     return ScoreResultBase(
         property_id=property_data.property_id,

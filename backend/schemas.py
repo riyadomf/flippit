@@ -10,7 +10,7 @@ import datetime
 
 class PropertyDataInput(BaseModel):
     """
-    V2 Schema: Includes ALL raw features needed for preprocessing before prediction.
+    Includes ALL raw features needed for preprocessing before prediction.
     """
     property_id: int
     list_price: float
