@@ -14,54 +14,53 @@ from config import settings
 
 def train_resale_model():
     """
-    Full pipeline to load, preprocess, train, evaluate, and save the resale price model.
+    Trains the model on the full dataset, but evaluates it specifically
+    on the "gold standard" subset to get a true measure of ARV prediction accuracy.
     """
     print("--- Starting Model Training Pipeline ---")
 
     # Load Data
     raw_sold_df = pd.read_csv(settings.SOLD_PROPERTIES_CSV)
     
-    # Create and Fit the DataProcessor
+    # 1. Create and Fit the DataProcessor on the entire raw dataset
     processor = DataProcessor()
-    processor.fit(raw_sold_df) # This learns medians, modes, and column structure
+    processor.fit(raw_sold_df)
 
-    # Transform the data using the fitted processor
+    # 2. Transform the entire dataset to get the full feature matrix
     X, y = processor.transform(raw_sold_df)
+    print(f"Full dataset transformed. Feature matrix has {X.shape[1]} features.")
 
-    # Split Data for Training and Evaluation
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    print(f"Data split into {len(X_train)} training samples and {len(X_test)} testing samples.")
+    # 3. Strict Train-Test Split BEFORE any filtering
+    # This creates a "lockbox" holdout set that the model will never see during training.
+    X_train, X_holdout, y_train, y_holdout = train_test_split(X, y, test_size=0.2, random_state=42)
+    print(f"Data split into {len(X_train)} for training pool and {len(X_holdout)} for holdout pool.")
+
+    # 4. Identify the "Gold Standard" rows within the HOLDOUT set for evaluation
+    # We use the 'is_fixer_upper' column that was engineered by the processor.
+    gold_standard_holdout_indices = X_holdout[X_holdout['is_fixer_upper'] == 0].index
     
-    # Define and Train the Model
-    print("\nTraining XGBoost Regressor model...")
-    model = XGBRegressor(
-        n_estimators=500,     # Number of trees to build.
-        learning_rate=0.05,   # How much to shrink the contribution of each tree.
-        max_depth=5,          # Maximum depth of a tree.
-        subsample=0.8,        # Fraction of samples to be used for fitting each tree.
-        colsample_bytree=0.8, # Fraction of features to be used for fitting each tree.
-        random_state=42,
-        n_jobs=-1             # Use all available CPU cores
-    )
+    X_test_final = X_holdout.loc[gold_standard_holdout_indices]
+    y_test_final = y_holdout.loc[gold_standard_holdout_indices]
     
+    print(f"Model will train on {len(X_train)} properties.")
+    print(f"Model will be evaluated on {len(X_test_final)} unseen 'gold standard' properties.")
+
+
+    # 5. Define, Train, and Evaluate
+    model = XGBRegressor(n_estimators=1000, learning_rate=0.03, max_depth=6, random_state=42, n_jobs=-1, subsample=0.7, colsample_bytree=0.7)
+    
+    # Train ONLY on the training set
     model.fit(X_train, y_train)
-    print("Model training complete.")
     
-    # 4. Evaluate the Model on the unseen test data.
-    print("\nEvaluating model performance...")
-    predictions = model.predict(X_test)
-    mae = mean_absolute_error(y_test, predictions)
-    print(f"  > Mean Absolute Error (MAE) on Test Set: ${mae:,.2f}")
-    print("  > This means, on average, our model's price prediction is off by this amount.")
+    # Evaluate ONLY on the gold standard test set
+    predictions = model.predict(X_test_final)
+    mae = mean_absolute_error(y_test_final, predictions)
+    print(f"  > Mean Absolute Error (MAE) on 'Gold Standard' Test Set: ${mae:,.2f}")
     
-    # 5. Save the Trained Model and the FITTED Processor
-    model_payload = {
-        'model': model,
-        'processor': processor # Save the whole fitted object
-    }
-    
+    # 6. Save the final payload
+    model_payload = {'model': model, 'processor': processor}
     joblib.dump(model_payload, settings.MODEL_PATH)
-    print(f"--- Trained model saved to '{settings.MODEL_PATH}' ---")
+    print(f"--- Trained model and fitted processor saved to '{settings.MODEL_PATH}' ---")
 
 if __name__ == "__main__":
     train_resale_model()

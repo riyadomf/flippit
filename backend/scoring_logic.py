@@ -5,6 +5,7 @@ of a property's flip score.
 """
 import pandas as pd
 from schemas import PropertyDataInput, ScoreResultBase
+from config import settings 
 
 
 # --- Tunable Constants for Scoring Logic ---
@@ -27,6 +28,9 @@ def estimate_resale_price(property_data: PropertyDataInput, model_store: dict) -
 
     property_df = pd.DataFrame([property_data.model_dump()])
 
+    property_df['is_fixer_upper'] = 0 # Assume it's NOT a fixer-upper
+    property_df['is_renovated'] = 1   # Assume it IS renovated
+
     # The processor now handles all data preparation for the model
     X_processed, _ = processor.transform(property_df)
     
@@ -36,19 +40,22 @@ def estimate_resale_price(property_data: PropertyDataInput, model_store: dict) -
 
 
 def estimate_renovation_cost(sqft: float, year_built: int, description: str) -> float:
-    """Estimates renovation costs using a tuned, keyword-based model."""
+    """
+    Heuristics: Uses both positive and negative keywords to
+    determine the renovation cost tier.
+    """
     description = str(description).lower()
     consts = ScoringConstants
     
     # This model now uses keywords for both high AND low cost.
-    high_cost_keywords = ['fixer-upper', 'tlc', 'as-is', 'rehab', 'investor special']
-    low_cost_keywords = ['fully renovated', 'newly updated', 'move-in ready']
+    high_cost_keywords = settings.HIGH_COST_KEYWORDS
+    low_cost_keywords = settings.LOW_COST_KEYWORDS
     
     if any(k in description for k in high_cost_keywords):
         cost_per_sqft = consts.HIGH_COST_SQFT
     elif any(k in description for k in low_cost_keywords):
         cost_per_sqft = consts.LOW_COST_SQFT
-    elif year_built < 1960:
+    elif year_built < 1965:
         cost_per_sqft = consts.MEDIUM_COST_SQFT
     else:
         cost_per_sqft = consts.COSMETIC_COST_SQFT
