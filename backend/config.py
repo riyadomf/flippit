@@ -11,6 +11,7 @@ class Settings:
     FOR_SALE_PROPERTIES_CSV: str = os.path.join(DATA_DIR, "for_sale_properties.csv")
     MODEL_PATH: str = "resale_model.pkl"
 
+    OLLAMA_MODEL_NAME: str = "llama3"
 
     KEYWORD_MAP: dict = {
         # Premium finishes (for ARV model)

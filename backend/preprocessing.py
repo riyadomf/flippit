@@ -15,7 +15,7 @@ class PreprocessingConfig:
         "property_id", "text", "zip_code", "neighborhoods",
         "beds", "full_baths", "half_baths", "sqft", "year_built",
         "list_price", "list_date", "sold_price", "estimated_value", "lot_sqft",
-        "stories", "hoa_fee", "parking_garage"
+        "stories", "hoa_fee", "parking_garage", 'days_on_mls', 'tax'
     ]
     BASE_MODEL_FEATURES = [
         'sqft', 'beds', 'stories', 'estimated_value', 'parking_garage',
@@ -95,6 +95,8 @@ class DataProcessor:
             'hoa_fee': 0.0,
             'neighborhoods': 'Unknown',
             'text': "",
+            'days_on_mls': df['days_on_mls'].median(),
+            'tax': df['tax'].median(),
             'list_price': df['list_price'].median(),
             'estimated_value': df['estimated_value'].median()
         }
@@ -113,7 +115,7 @@ class DataProcessor:
 
         # Impute missing values using LEARNED values
         # Special fallback for estimated_value to use list_price first
-        df_transformed['estimated_value'].fillna(df_transformed['list_price'], inplace=True)
+        df_transformed['estimated_value'] = df_transformed['estimated_value'].fillna(df_transformed['list_price'])
         df_transformed.fillna(self.imputation_values, inplace=True)
 
         # Engineer Features
@@ -157,7 +159,7 @@ class DataProcessor:
         df.drop_duplicates(subset=['property_id'], keep='first', inplace=True)
         
         # Impute with LEARNED values from the fitted processor
-        df['estimated_value'].fillna(df['list_price'], inplace=True)
+        df['estimated_value'] = df['estimated_value'].fillna(df['list_price'])
         df.fillna(self.imputation_values, inplace=True)
 
         # Explicitly handle data types to create Pydantic-safe dictionaries

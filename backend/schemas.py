@@ -4,7 +4,7 @@ Defines the Pydantic models for data validation and serialization.
 These models define the shape of the data for API requests and responses.
 """
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 import datetime
 
 
@@ -68,3 +68,12 @@ class ScoreOutput(ScoreResultBase):
     
     class Config:
         orm_mode = True # Enables the model to be created from an ORM object
+
+
+class LLMAnalysisOutput(BaseModel):
+    """Schema to validate the structured JSON output from the LLM."""
+    renovation_level: str
+    positive_features: List[str]
+    negative_features: List[str]
+    estimated_risk_score: int
+    risk_factors: List[str]

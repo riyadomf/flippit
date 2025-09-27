@@ -47,8 +47,15 @@ def run_scoring_process():
     task_status['is_scoring'] = True
     
     print("Starting background scoring process...")
+    
+    # Define batch size
+    BATCH_SIZE = 10 
+    
+
+    # Get a new DB session for the entire process duration
     db: Session = next(get_db())
     processor = data_handler.model_store.get('processor')
+
     if not processor:
         print("ERROR: DataProcessor not loaded. Aborting scoring task.")
         task_status['is_scoring'] = False
@@ -71,27 +78,56 @@ def run_scoring_process():
         clean_property_dicts = processor.prepare_inference_data(new_properties_df)
         print(f"Found and cleaned {len(clean_property_dicts)} new properties to score.")
 
-        for prop_dict in clean_property_dicts:
-            try:
-                # This call is now guaranteed to be safe and valid
-                property_input = schemas.PropertyDataInput(**prop_dict)
-                
-                scored_output = scoring_logic.score_property(property_input, data_handler.model_store)
-                
-                db_property = models.ScoredProperty(**scored_output.dict())
-                db.add(db_property)
-            except Exception as e:
-                print(f"Could not score property {prop_dict.get('property_id')}: {e}")
+        total_to_score = len(clean_property_dicts)
+        if total_to_score == 0:
+            print("No new properties to score.")
+            return
+        
+        print(f"Found {total_to_score} new properties to score. Processing in batches of {BATCH_SIZE}.")
+
+
+        for i in range(0, total_to_score, BATCH_SIZE):
+            batch = clean_property_dicts[i:i + BATCH_SIZE]
+            print(f"--- Processing batch {i//BATCH_SIZE + 1} ({len(batch)} properties) ---")
             
-        db.commit()
-        print(f"Successfully scored and saved {len(new_properties_df)} new properties.")
+            # This inner loop is for a single batch
+            for prop_dict in batch:
+                try:
+                    # Create the Pydantic model from the clean dictionary
+                    property_input = schemas.PropertyDataInput(**prop_dict)
+                    print(property_input)
+                    print(f"Scoring property ID: {property_input.property_id}")
+                    # Call the scoring logic
+                    scored_output = scoring_logic.score_property(property_input, data_handler.model_store)
+                    print(f"Scored property ID {property_input.property_id}: ROI {scored_output.roi_percentage:.2f}")
+                    
+                    # Add the result to the current session's transaction
+                    db_property = models.ScoredProperty(**scored_output.dict())
+                    db.add(db_property)
+                    
+                except Exception as e:
+                    # If a single property fails, log it and continue with the rest of the batch
+                    print(f"ERROR: Could not score property {prop_dict.get('property_id')}: {e}")
+            
+            # Commit the transaction for the CURRENT BATCH
+            # We commit after
+            # every 10 properties. If the script crashes during the next batch,
+            # this batch's work is already saved permanently.
+            try:
+                db.commit()
+                print(f"--- Batch {i//BATCH_SIZE + 1} successfully committed to the database. ---")
+            except Exception as e:
+                print(f"DATABASE ERROR: Could not commit batch {i//BATCH_SIZE + 1}: {e}")
+                db.rollback() # Rollback the failed batch and continue to the next one
+
     except Exception as e:
-        print(f"An error occurred during scoring: {e}")
-        db.rollback()
+        # This catches errors during the initial data loading phase
+        print(f"A critical error occurred during data preparation: {e}")
     finally:
+        # Always ensure the session is closed and status is reset
         db.close()
         task_status['is_scoring'] = False
-        print("Scoring process finished.")
+        print("--- Scoring process finished. ---")
 
 # --- API ENDPOINTS ---
 
