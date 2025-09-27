@@ -99,11 +99,12 @@ Then I replaced the heuristic resale price calculation with a predictive machine
     1.  **vs. Linear/Polynomial Regression:** Real estate value is not linear. Our EDA proved that the value of an extra square foot diminishes as a house gets larger. Linear models cannot capture this nuance, whereas a tree-based model like XGBoost excels at modeling complex, non-linear relationships and feature interactions (e.g., the value of an extra bathroom is higher in a 4-bedroom house than a 2-bedroom one).
     2.  **vs. Neural Networks:** For the size and structure of our dataset (tabular CSV data), Gradient Boosting models consistently outperform Neural Networks. Neural Networks typically require much larger datasets to be effective and are more difficult to interpret.
 
-*   **Training & Validation Strategy:**
+*   **Training, Validation, & Inference Strategy:**
     The model's goal is to predict the **After-Repair Value (ARV)**. Therefore, simply training on all sold data is insufficient. A specialized validation strategy was employed:
     1.  The model was **trained on the entire training dataset** to learn broad market patterns.
-    2.  It was **evaluated against a "Gold Standard" subset** of the holdout test data. This subset included only properties that were already in excellent, renovated condition (`renovation_level='Cosmetic'`, `llm_quality_score >= 6`).
+    2.  It was **evaluated against a "Gold Standard" subset** of the holdout test data. This subset included only properties that were already in excellent, renovated condition (`is_fixer_upper=0`, `is_renovated=1`).
     This ensures our key performance metric (Mean Absolute Error) accurately reflects the model's ability to predict the final price of a finished, desirable product.
+    3. During inference, I manipulated these condition features to indicate that the property is in great condition, recently renovated, and not fixer_upper 
 
 #### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Latest Approach)**
 
