@@ -68,7 +68,7 @@ The core of the model's predictive power comes from creating new, more informati
     *   **Dimensionality Reduction:** Redundant or noisy raw features (e.g., `text`, `half_baths`) are dropped, as their predictive signal has been captured in the new engineered features. The final feature set is curated based on the `BASE_MODEL_FEATURES` config to ensure a lean and powerful model.
 
 
-
+---
 
 ### **4. Methodology: A Hybrid Approach for Scoring**
 
@@ -132,7 +132,7 @@ The latest and most powerful version of the scoring engine is a hybrid system th
     *   The final `assign_grade` function uses a risk-averse model that requires both a high ROI and a low final risk score to achieve a top grade, ensuring that only the most promising and safest deals are recommended to the user.
 
 
-
+---
 
 ### **5. Future Scope & Potential Enhancements**
 
@@ -160,6 +160,7 @@ The following enhancements were on my plan.
 
 *  **Environmental Risk API Integration**
 
+---
 
 ### **6. System Architecture & End-to-End Pipeline**
 The end-to-end pipeline is executed in two distinct phases: an offline training phase and an online inference phase.
