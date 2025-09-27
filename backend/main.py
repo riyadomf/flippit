@@ -172,7 +172,12 @@ async def get_scored_properties(
     # if min_beds is not None:
     #     query = query.filter(models.ScoredProperty.beds >= min_beds)
     
-    return query.order_by(models.ScoredProperty.roi_percentage.desc()).all()
+    query = query.order_by(
+        models.ScoredProperty.overall_grade.asc(),   # 'A' comes before 'B'
+        models.ScoredProperty.roi_percentage.desc()
+    )
+
+    return query.all()
 
 
 @app.get("/score/{property_id}", response_model=schemas.ScoreOutput)
