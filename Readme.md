@@ -85,7 +85,7 @@ To solve this, I broke down the problem into distinct, modular components, each 
 The initial approach was a rule-based system (MVP).
 *   **Resale Price Estimation:** Calculated using a simple `price_per_sqft` metric derived from the `sold_properties` data, grouped by ZIP code and property size range.
 *   **Renovation Cost:** Estimated using a tiered heuristic based on the property's age (`year_built`) and the presence of simple keywords (e.g., "fixer-upper" vs. "updated") in the text description.
-*   **Other Cost:** Selling Cost (Percentage to agent or others) + Carrying Cost
+*   **Other Cost:** Selling Cost (Percentage to agent or others) + Carrying Cost for the holding period (tax + hoa)
 *   **Risk & Grading:** A simple risk score was calculated based on factors like `days_on_mls` and `year_built`. An A-F grade was then assigned using fixed ROI and risk thresholds.
 
 **Limitation:** This approach was rigid and could not capture the complex, non-linear relationships in the market. The keyword analysis was basic and missed significant nuance in the property descriptions.
