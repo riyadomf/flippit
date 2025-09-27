@@ -117,18 +117,26 @@ def assess_risk(property_data: PropertyDataInput) -> int:
     risk = property_data.llm_risk_score
     
     # Add points for structural factors
-    if property_data.year_built < 1960: risk += 1
-    if property_data.days_on_mls > 90: risk += 1
-    if property_data.estimated_value and property_data.list_price < (property_data.estimated_value * 0.75): risk += 1
+    if property_data.year_built < 1940: risk += 1
+    if property_data.days_on_mls > 150: risk += 1
+    if property_data.estimated_value and property_data.list_price < (property_data.estimated_value * 0.5): risk += 1
         
     return min(risk, 10)
 
+
+# In scoring_logic.py
 def assign_grade(roi: float, risk: int) -> str:
-    # ... (This function is unchanged) ...
-    if roi > 18 and risk < 5: return 'A'
-    if roi > 15 and risk < 7: return 'B'
-    if roi > 12 and risk < 8: return 'C'
-    if roi > 8: return 'D'
+    """
+    calculate grade based on ROI and risk.
+    """
+    if roi > 15:
+        return 'A' if risk <= 7 else 'B' # Exceptional ROI is an A or B, depending on risk
+    elif roi > 10:
+        return 'B' if risk <= 8 else 'C' # Great ROI is a B or C
+    elif roi > 7:
+        return 'C' if risk <= 9 else 'D' # Good ROI is a C or D
+    elif roi > 4:
+        return 'D' 
     return 'F'
 
 def generate_explanation(grade: str, roi: float, arv: float, property_data: PropertyDataInput) -> str:
