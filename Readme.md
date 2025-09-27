@@ -75,6 +75,7 @@ The core of the model's predictive power comes from creating new, more informati
 The core of the Flippit service is a scoring engine that calculates the potential Return on Investment (ROI) for each for-sale property. The fundamental formula is:
 
 **Expected Profit = `Estimated Resale Price` - (`List Price` + `Renovation Cost` + `Other Cost`)**
+
 **ROI = (`Expected Profit` / `Total Cash Invested`) * 100**
 
 To solve this, I broke down the problem into distinct, modular components, each of which was improved iteratively.
