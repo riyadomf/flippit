@@ -55,7 +55,7 @@ class DataProcessor:
         self.categorical_features_to_encode = self.config.CATEGORICAL_FEATURES.copy()
 
 
-    def _clean_and_filter(self, df: pd.DataFrame, is_training: bool = False) -> pd.DataFrame:
+    def _clean_and_filter(self, df: pd.DataFrame, is_training: bool) -> pd.DataFrame:
         """Handles initial cleaning, deduplication, and outlier removal."""
         df_clean = df.copy()
 
@@ -64,8 +64,13 @@ class DataProcessor:
         df_clean.sort_values(by='list_date', ascending=False, inplace=True)
         df_clean.drop_duplicates(subset=['property_id'], keep='first', inplace=True)
 
-        if self.config.TARGET_COLUMN in df_clean.columns:
+        if is_training:
             df_clean.dropna(subset=[self.config.TARGET_COLUMN, 'sqft'], inplace=True)
+            
+            # Drop rows missing too much key predictive information
+            df_clean.dropna(subset=['list_price', 'estimated_value', 'year_built'], thresh=2, inplace=True)
+
+            # Remove extreme outliers
             df_clean = df_clean[(df_clean['sqft'] > 100) & (df_clean[self.config.TARGET_COLUMN] > 10000)].copy()
             df_clean['price_per_sqft'] = df_clean[self.config.TARGET_COLUMN] / df_clean['sqft']
             lower, upper = self.config.PRICE_PER_SQFT_OUTLIER_BOUNDS
@@ -142,12 +147,13 @@ class DataProcessor:
         self.training_columns = X_schema.columns.tolist()
         print(f"--- DataProcessor fitting complete. Final schema has {len(self.training_columns)} features. ---")
 
-    def transform(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    def transform(self, df: pd.DataFrame, is_training: bool = False) -> tuple[pd.DataFrame, pd.Series]:
         """Transforms raw data into a model-ready feature matrix using grouped imputation."""
         df_transformed = df.copy()
         
         # --- Pre-computation and Initial Cleaning ---
-        df_transformed = self._clean_and_filter(df_transformed)
+        df_transformed = self._clean_and_filter(df_transformed, is_training=is_training)
+        
         df_transformed['size_range'] = df_transformed['sqft'].apply(get_size_range)
         
         # --- Intelligent Imputation ---
