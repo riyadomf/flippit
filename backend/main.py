@@ -64,8 +64,12 @@ def run_scoring_process():
     
     try:
         scored_ids = {res[0] for res in db.query(models.ScoredProperty.property_id).all()}
-        forsale_df = pd.read_csv(settings.FOR_SALE_PROPERTIES_CSV)
-        
+        try:
+            # Load the file that has already been enriched by the LLM
+            forsale_df = pd.read_csv(settings.ENRICHED_FOR_SALE_PROPERTIES_CSV) 
+        except FileNotFoundError:
+            print("Enriched for-sale data not found. Please run 'generate_llm_features.py for_sale' first.")
+            return
         new_properties_df = forsale_df[~forsale_df['property_id'].isin(scored_ids)]
         
         if new_properties_df.empty:
@@ -95,11 +99,10 @@ def run_scoring_process():
                 try:
                     # Create the Pydantic model from the clean dictionary
                     property_input = schemas.PropertyDataInput(**prop_dict)
-                    print(property_input)
                     print(f"Scoring property ID: {property_input.property_id}")
                     # Call the scoring logic
                     scored_output = scoring_logic.score_property(property_input, data_handler.model_store)
-                    print(f"Scored property ID {property_input.property_id}: ROI {scored_output.roi_percentage:.2f}")
+                    print(f"Scored property ID {property_input.property_id}: Resale price {scored_output.estimated_resale_price}: ROI {scored_output.roi_percentage:.2f}")
                     
                     # Add the result to the current session's transaction
                     db_property = models.ScoredProperty(**scored_output.dict())

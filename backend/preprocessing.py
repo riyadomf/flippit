@@ -3,8 +3,9 @@
 Handles the complete data cleaning and feature engineering pipeline.
 This script is used by train_model.py (offline) and scoring_logic.py (online).
 """
-from typing import List
+from typing import Any, Dict, List
 import pandas as pd
+import re, ast, numpy as np
 from datetime import datetime
 from config import settings
 
@@ -12,19 +13,22 @@ from config import settings
 # --- Configuration for Preprocessing ---
 class PreprocessingConfig:
     INITIAL_FEATURE_COLS = [
-        "property_id", "text", "zip_code", "neighborhoods",
+        "property_id", "zip_code", "neighborhoods",
         "beds", "full_baths", "half_baths", "sqft", "year_built",
         "list_price", "list_date", "sold_price", "estimated_value", "lot_sqft",
-        "stories", "hoa_fee", "parking_garage", 'days_on_mls', 'tax'
+        "stories", "hoa_fee", "parking_garage", 'days_on_mls', 'tax',
+        # LLM-generated columns are now part of the initial set
+        'llm_quality_score', 'llm_risk_score', 'renovation_level',
     ]
     BASE_MODEL_FEATURES = [
         'sqft', 'beds', 'stories', 'estimated_value', 'parking_garage',
         'lot_sqft', 'property_age', 'list_price', 'total_baths',
         # Condition and finish flags are also base features
-        'is_fixer_upper', 'is_renovated', 'has_granite', 'has_hardwood', 'has_stainless'
+        'llm_quality_score',    # The powerful new score from the LLM
+        'sqft_x_quality_score', 'llm_risk_score'  # Interaction between size and LLM's quality 
     ]
 
-    CATEGORICAL_FEATURES = ['zip_code', 'neighborhoods', 'size_range']
+    CATEGORICAL_FEATURES = ['zip_code', 'neighborhoods', 'size_range', 'renovation_level']
 
     TARGET_COLUMN = 'sold_price'
     PRICE_PER_SQFT_OUTLIER_BOUNDS = (20, 350)
@@ -46,9 +50,9 @@ class DataProcessor:
     """A class to handle all data preprocessing for both training and inference."""
     def __init__(self):
         self.config = PreprocessingConfig()
-        self.imputation_values = {}
-        self.training_columns = []
-        self._fitted_categories = {} # To store all possible categories
+        self.imputation_values: Dict[str, Any] = {}
+        self.training_columns: List[str] = []
+        self._fitted_categories: Dict[str, List[str]] = {} # To store all possible categories
         self.categorical_features_to_encode = self.config.CATEGORICAL_FEATURES.copy()
 
 
@@ -68,7 +72,7 @@ class DataProcessor:
             lower, upper = self.config.PRICE_PER_SQFT_OUTLIER_BOUNDS
             df_clean = df_clean[(df_clean['price_per_sqft'] >= lower) & (df_clean['price_per_sqft'] <= upper)]
         return df_clean
-    
+
 
     def fit(self, df_raw: pd.DataFrame):
         """Learns all necessary statistics and schemas from the full training dataset."""
@@ -85,20 +89,22 @@ class DataProcessor:
         print(f"Learned categories for: {list(self._fitted_categories.keys())}")
 
         self.imputation_values = {
-            'beds': df['beds'].mode(),
-            'full_baths': df['full_baths'].mode(),
-            'half_baths': df['half_baths'].mode(),
-            'year_built': df['year_built'].mode(),
+            'beds': df['beds'].mode()[0],
+            'full_baths': df['full_baths'].mode()[0],
+            'half_baths': df['half_baths'].mode()[0],
+            'year_built': df['year_built'].mode()[0],
             'stories': df['stories'].mode()[0],
             'parking_garage': df['parking_garage'].mode()[0],
             'lot_sqft': df['lot_sqft'].median(),
             'hoa_fee': 0.0,
-            'neighborhoods': 'Unknown',
+            'neighborhoods': df['neighborhoods'].mode()[0],
             'text': "",
             'days_on_mls': df['days_on_mls'].median(),
             'tax': df['tax'].median(),
             'list_price': df['list_price'].median(),
-            'estimated_value': df['estimated_value'].median()
+            'estimated_value': df['estimated_value'].median(),
+            'llm_quality_score': 5,  # Neutral default if missing,
+            'llm_risk_score': df['llm_risk_score'].median()
         }
         
 
@@ -122,14 +128,19 @@ class DataProcessor:
         df_transformed['property_age'] = self.config.CURRENT_YEAR - df_transformed['year_built']
         df_transformed['total_baths'] = df_transformed['full_baths'] + (0.5 * df_transformed['half_baths'])
         df_transformed['size_range'] = df_transformed['sqft'].apply(get_size_range)
-        for col, term in settings.KEYWORD_MAP.items():
-            df_transformed[col] = df_transformed['text'].str.contains(term, case=False, regex=True).astype(int)
+
+        print(df_transformed.columns)
 
         # 3. One-Hot Encode using the LEARNED categories to ensure consistency
+        print("Applying one-hot encoding with learned categories on transform.")
         for col, categories in self._fitted_categories.items():
             df_transformed[col] = pd.Categorical(df_transformed[col], categories=categories)
         df_transformed = pd.get_dummies(df_transformed, columns=self.categorical_features_to_encode, prefix=self.categorical_features_to_encode, dtype=int)
+        print(f"One-hot encoding complete. Data now has {df_transformed.shape[1]} columns.")
 
+
+        # Interaction Feature of sqft and LLM quality score
+        df_transformed['sqft_x_quality_score'] = df_transformed['sqft'] * df_transformed['llm_quality_score']
 
         # Final Feature Selection and Alignment
         if self.training_columns:
@@ -162,26 +173,49 @@ class DataProcessor:
         df['estimated_value'] = df['estimated_value'].fillna(df['list_price'])
         df.fillna(self.imputation_values, inplace=True)
 
-        # Explicitly handle data types to create Pydantic-safe dictionaries
-        # This is the manual cleaning logic, now moved to its rightful home.
+        list_columns = ['positive_features', 'negative_features']
+        
+        for col in list_columns:
+            if col in df.columns:
+                # The .apply() method will run this safe_literal_eval function on every row of the column.
+                def safe_literal_eval(val):
+                    try:
+                        # If it's already a list (rare, but possible), just return it.
+                        if isinstance(val, list):
+                            return val
+                        # ast.literal_eval will safely parse the string into a list.
+                        return ast.literal_eval(str(val))
+                    except (ValueError, SyntaxError):
+                        # If the string is malformed (e.g., empty or just text), return an empty list.
+                        return []
+                
+                df[col] = df[col].apply(safe_literal_eval)
+
+        # --- 3. Final Type Conversion and Formatting ---
+        # My Thought Process: Now that the data types are correct, we can convert
+        # the DataFrame to a list of dictionaries and handle any final formatting.
+        
+        # Replace any remaining Pandas-specific nulls (like NaT) with Python's None
+        df = df.replace({np.nan: None, pd.NaT: None})
+        
         dict_records = df.to_dict(orient='records')
+        
+        # The final loop is now much simpler, mainly handling integer casting.
         clean_records = []
         for record in dict_records:
-            clean_record = {}
-            for key, value in record.items():
-                if pd.isna(value):
-                    clean_record[key] = None
-                else:
-                    clean_record[key] = value
-            
-            if clean_record.get('list_date'):
-                clean_record['list_date'] = clean_record['list_date'].strftime('%Y-%m-%d')
+            if record.get('list_date'):
+                record['list_date'] = record['list_date'].strftime('%Y-%m-%d')
 
-            for key in ['beds', 'full_baths', 'half_baths', 'stories', 'parking_garage', 'days_on_mls', 'property_id', 'zip_code', 'year_built']:
-                 if key in clean_record:
-                    clean_record[key] = int(clean_record.get(key) or 0)
+            int_keys = ['beds', 'full_baths', 'half_baths', 'stories', 'parking_garage', 
+                        'days_on_mls', 'property_id', 'zip_code', 'year_built']
+            for key in int_keys:
+                if key in record and record[key] is not None:
+                    try:
+                        record[key] = int(record[key])
+                    except (ValueError, TypeError):
+                        record[key] = 0 # Fallback for safety
             
-            clean_records.append(clean_record)
+            clean_records.append(record)
             
         print(f"Prepared {len(clean_records)} clean property records for inference.")
         return clean_records

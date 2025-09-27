@@ -5,7 +5,7 @@ Run this file from your terminal to create the resale_model.pkl file.
 """
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, r2_score
 from xgboost import XGBRegressor
 import joblib
 
@@ -19,8 +19,13 @@ def train_resale_model():
     """
     print("--- Starting Model Training Pipeline ---")
 
-    # Load Data
-    raw_sold_df = pd.read_csv(settings.SOLD_PROPERTIES_CSV)
+    # --- 1. Load the Enriched Data ---
+    try:
+        raw_sold_df = pd.read_csv(settings.ENRICHED_SOLD_PROPERTIES_CSV)
+    except FileNotFoundError:
+        print(f"ERROR: Enriched data not found at {settings.ENRICHED_SOLD_PROPERTIES_CSV}")
+        print("Please run 'python generate_llm_features.py sold' first.")
+        return
     
     # 1. Create and Fit the DataProcessor on the entire raw dataset
     processor = DataProcessor()
@@ -35,23 +40,24 @@ def train_resale_model():
     X_train, X_holdout, y_train, y_holdout = train_test_split(X, y, test_size=0.2, random_state=42)
     print(f"Data split into {len(X_train)} for training pool and {len(X_holdout)} for holdout pool.")
 
-    # 4. Identify the "Gold Standard" rows within the HOLDOUT set for evaluation
-    # This gives us the most relevant possible evaluation metric for an ARV model.
-    gold_standard_holdout_indices = X_holdout[
-        (X_holdout['is_fixer_upper'] == 0) & (X_holdout['is_renovated'] == 1)
+    # A renovated home should have a low risk score and a high quality score from the LLM
+    # Ensure the target column for filtering exists
+    gold_standard_filter_col = 'renovation_level_Cosmetic'
+    gold_standard_indices = X_holdout[
+        (X_holdout['llm_risk_score'] <= 2) &
+        (X_holdout['llm_quality_score'] >= 6) &
+        (X_holdout[gold_standard_filter_col] == 1)  # <-- THE CORRECTED LOGIC
     ].index
-
     
-    X_test_final = X_holdout.loc[gold_standard_holdout_indices]
-    y_test_final = y_holdout.loc[gold_standard_holdout_indices]
+    X_test_final = X_holdout.loc[gold_standard_indices]
+    y_test_final = y_holdout.loc[gold_standard_indices]
 
 
     # Fallback if no ARV-like properties are found
-    if len(X_test_final) == 0:
+    if len(X_test_final) < 10:
         print("WARNING: No 'gold standard' properties found in the holdout set for evaluation.")
-        gold_standard_holdout_indices = X_holdout[X_holdout['is_fixer_upper'] == 0].index
-        X_test_final = X_holdout.loc[gold_standard_holdout_indices]
-        y_test_final = y_holdout.loc[gold_standard_holdout_indices]
+        print("WARNING: Too few 'gold standard' properties found. Evaluating on general test set instead.")
+        X_test_final, y_test_final = X_holdout, y_holdout
     
     print(f"Model will train on {len(X_train)} properties.")
     print(f"Model will be evaluated on {len(X_test_final)} unseen 'gold standard' properties.")
@@ -81,6 +87,15 @@ def train_resale_model():
     mae = mean_absolute_error(y_test_final, predictions)
     print(f"  > Mean Absolute Error (MAE) on 'Gold Standard' Test Set: ${mae:,.2f}")
     
+
+    # 4. Final Evaluation on the Gold Standard Set
+    print("\n--- Gold Standard Performance ---")
+    y_pred_gold = model.predict(X_test_final)
+    mae_gold = mean_absolute_error(y_test_final, y_pred_gold)
+    r2_gold = r2_score(y_test_final, y_pred_gold)
+    print(f"Gold Standard MAE: ${mae_gold:,.2f}")
+    print(f"Gold Standard R-squared: {r2_gold:.4f}")
+
     # 6. Save the final payload
     model_payload = {'model': model, 'processor': processor}
     joblib.dump(model_payload, settings.MODEL_PATH)
