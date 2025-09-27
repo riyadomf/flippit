@@ -58,10 +58,23 @@ def train_resale_model():
 
 
     # 5. Define, Train, and Evaluate
-    model = XGBRegressor(n_estimators=1000, learning_rate=0.03, max_depth=6, random_state=42, n_jobs=-1, subsample=0.7, colsample_bytree=0.7)
+    model = XGBRegressor(
+        n_estimators=1000, 
+        learning_rate=0.03, 
+        max_depth=6, 
+        random_state=42, 
+        n_jobs=-1, 
+        subsample=0.7, 
+        colsample_bytree=0.7,
+        early_stopping_rounds=50)
     
     # Train ONLY on the training set
-    model.fit(X_train, y_train)
+    model.fit(
+        X_train, 
+        y_train,
+        eval_set=[(X_test_final, y_test_final)], 
+        verbose=False
+    )
     
     # Evaluate ONLY on the gold standard test set
     predictions = model.predict(X_test_final)
