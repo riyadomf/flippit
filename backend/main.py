@@ -132,7 +132,12 @@ def run_scoring_process():
         task_status['is_scoring'] = False
         print("--- Scoring process finished. ---")
 
+
+
+
+
 # --- API ENDPOINTS ---
+
 
 @app.post("/process-scores", status_code=202)
 async def trigger_scoring(background_tasks: BackgroundTasks):
@@ -163,8 +168,29 @@ async def get_scored_properties(
         query = query.filter(models.ScoredProperty.roi_percentage >= min_roi)
     if max_price is not None:
         query = query.filter(models.ScoredProperty.list_price <= max_price)
-    # The beds filter requires joining with the source data, a V3 enhancement
+    # The beds filter requires joining with the source data,
     # if min_beds is not None:
     #     query = query.filter(models.ScoredProperty.beds >= min_beds)
     
     return query.order_by(models.ScoredProperty.roi_percentage.desc()).all()
+
+
+@app.get("/score/{property_id}", response_model=schemas.ScoreOutput)
+async def get_single_property_score(property_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieves the detailed score for a single property by its ID.
+
+    This endpoint queries the database for a property that has already been
+    processed by the background scoring task.
+    """
+    
+    # Query the database for the ScoredProperty with the matching property_id.
+    scored_property = db.query(models.ScoredProperty).filter(models.ScoredProperty.property_id == property_id).first()
+    
+    # If no such property exists, return a 404 error.
+    if not scored_property:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Property with ID {property_id} has not been scored or does not exist."
+        )
+    return scored_property

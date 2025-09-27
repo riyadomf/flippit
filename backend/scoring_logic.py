@@ -12,20 +12,15 @@ from prompts import FLIP_ANALYSIS_PROMPT_TEMPLATE
 
 # --- Tunable Constants for Scoring Logic ---
 class ScoringConstants:
-    # HIGH_COST_SQFT = 45
-    # MEDIUM_COST_SQFT = 25
-    # COSMETIC_COST_SQFT = 12
-    # LOW_COST_SQFT = 5
-
     RENOVATION_COST_MAP = {
         'Cosmetic': 5.0,
-        'Medium': 20.0,
-        'Heavy': 45.0,
-        'Gut': 55.0,
+        'Medium': 15.0,
+        'Heavy': 25.0,
+        'Gut': 40.0,
         'Unknown': 15.0
     }
     SELLING_COST_PERCENTAGE = 0.05
-    HOLDING_PERIOD_MONTHS = 3
+    HOLDING_PERIOD_MONTHS = 2
 
 
 def analyze_description_with_llm(text: str) -> LLMAnalysisOutput:
@@ -47,7 +42,7 @@ def analyze_description_with_llm(text: str) -> LLMAnalysisOutput:
         response = ollama.chat(
             model=settings.OLLAMA_MODEL_NAME,
             messages=[{'role': 'user', 'content': prompt}],
-            format='json' # This is a crucial instruction!
+            format='json'
         )
         
         # The Ollama library gives the parsed JSON content
@@ -80,25 +75,21 @@ def estimate_resale_price(property_data: PropertyDataInput, model_store: dict) -
 
     # --- Manually Override to Represent an "After Repair" State ---
     # A top-tier renovation should result in a high quality_score.
-    # We set it to 9 (not 10, to be slightly conservative) and recalculate interactions.
-    # This is a much stronger signal to the model than flipping a binary flag.
+    # set it manually and recalculate interactions.
     if 'llm_quality_score' in X_processed.columns:
         X_processed['llm_quality_score'] = 10  # Simulate a high-quality, desirable finish
-    if 'llm_quality_score' in X_processed.columns:
-        X_processed['llm_risk_score'] = 1  # Simulate a high-quality, desirable finish
     
     # Recalculate the interaction features with the new quality score
     if 'sqft_x_quality_score' in X_processed.columns:
         X_processed['sqft_x_quality_score'] = X_processed['sqft'] * X_processed['llm_quality_score']
     
 
-    # Set the one-hot encoded renovation level to our ideal state: "Cosmetic"
+    # Set the one-hot encoded renovation level to ideal state: "Cosmetic"
     reno_level_cols = [col for col in X_processed.columns if col.startswith('renovation_level_')]
     for col in reno_level_cols:
         X_processed[col] = 1 if col == 'renovation_level_Cosmetic' else 0
 
     print(f"Predicting resale price for property ID: {property_data.property_id}")
-    print(f"Processed features: {X_processed.iloc[0].to_dict()}")
     prediction = model.predict(X_processed)
     return float(prediction[0])
 
@@ -160,33 +151,32 @@ def generate_explanation(grade: str, roi: float, arv: float, property_data: Prop
 
 def score_property(property_data: PropertyDataInput, model_store: dict) -> ScoreResultBase:
     """
-    V2.3 (Optimized): Orchestrates scoring using pre-generated LLM features.
+    Orchestrates scoring using pre-generated LLM features.
     NO LIVE LLM CALLS ARE MADE HERE.
     """
     # My Thought Process: This function is now much faster and simpler.
     # It just takes the clean PropertyDataInput and calls the calculation modules.
 
     print("--- Scoring Property ID:", property_data.property_id, "---")
-    print(f"Property Data: {property_data}")
     
-    # 1. Estimate ARV using the V2 model
+    # Estimate ARV using the ML model
     print(f"Estimating resale price for property ID: {property_data.property_id}")
     arv_prediction = estimate_resale_price(property_data, model_store)
     print(f"Predicted ARV: ${arv_prediction:,.2f} for property ID: {property_data.property_id}")
     
-    # 2. Calculate other scores using the pre-generated LLM data
+    # Calculate other scores using the pre-generated LLM data
     reno_cost = estimate_renovation_cost(property_data.sqft, property_data.renovation_level)
     risk = assess_risk(property_data)
     other_costs = calculate_other_costs(arv_prediction, property_data.tax, property_data.hoa_fee)
     
-    # 3. Final Calculations
+    # Final Calculations
     cash_invested = property_data.list_price + reno_cost
     profit = arv_prediction - (property_data.list_price + reno_cost + other_costs)
     roi = (profit / cash_invested) * 100 if cash_invested > 0 else 0
     grade = assign_grade(roi, risk)
     explanation = generate_explanation(grade, roi, arv_prediction, property_data)
     
-    # 4. Return the final structured output
+    # Return the final structured output
     return ScoreResultBase(
         property_id=property_data.property_id,
         address=f"{property_data.full_street_line}, {property_data.city}, {property_data.state}",

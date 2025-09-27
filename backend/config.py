@@ -16,21 +16,21 @@ class Settings:
 
     OLLAMA_MODEL_NAME: str = "llama3"
 
-    KEYWORD_MAP: dict = {
-        # Premium finishes (for ARV model)
-        'has_granite': 'granite',
-        'has_hardwood': 'hardwood|wood floor',
-        'has_stainless': 'stainless steel|stainless appliances',
-        # Condition flags (for ARV model AND Renovation Cost model)
-        'is_fixer_upper': '|'.join([
-            'fixer', 'fixer-upper', 'tlc', 'as-is', 'as is', 'rehab',
-            'investor special', 'needs work', 'handyman', 'opportunity'
-        ]),
-        'is_renovated': '|'.join([
-            'fully renovated', 'newly updated', 'updated', 'remodeled', 'new kitchen',
-            'new bath', 'move-in ready', 'turnkey', 'turn key'
-        ])
-    }
+    # KEYWORD_MAP: dict = {
+    #     # Premium finishes (for ARV model)
+    #     'has_granite': 'granite',
+    #     'has_hardwood': 'hardwood|wood floor',
+    #     'has_stainless': 'stainless steel|stainless appliances',
+    #     # Condition flags (for ARV model AND Renovation Cost model)
+    #     'is_fixer_upper': '|'.join([
+    #         'fixer', 'fixer-upper', 'tlc', 'as-is', 'as is', 'rehab',
+    #         'investor special', 'needs work', 'handyman', 'opportunity'
+    #     ]),
+    #     'is_renovated': '|'.join([
+    #         'fully renovated', 'newly updated', 'updated', 'remodeled', 'new kitchen',
+    #         'new bath', 'move-in ready', 'turnkey', 'turn key'
+    #     ])
+    # }
 
 
 

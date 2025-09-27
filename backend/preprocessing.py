@@ -1,4 +1,4 @@
-# V2_preprocessing.py
+# preprocessing.py
 """
 Handles the complete data cleaning and feature engineering pipeline.
 This script is used by train_model.py (offline) and scoring_logic.py (online).
@@ -23,9 +23,8 @@ class PreprocessingConfig:
     BASE_MODEL_FEATURES = [
         'sqft', 'beds', 'stories', 'estimated_value', 'parking_garage',
         'lot_sqft', 'property_age', 'list_price', 'total_baths',
-        # Condition and finish flags are also base features
-        'llm_quality_score',    # The powerful new score from the LLM
-        'sqft_x_quality_score', 'llm_risk_score'  # Interaction between size and LLM's quality 
+        'llm_quality_score',    # score from the LLM
+        'sqft_x_quality_score' # Interaction between size and LLM's quality 
     ]
 
     CATEGORICAL_FEATURES = ['zip_code', 'neighborhoods', 'size_range', 'renovation_level']
@@ -52,7 +51,7 @@ class DataProcessor:
         self.config = PreprocessingConfig()
         self.imputation_values: Dict[str, Any] = {}
         self.training_columns: List[str] = []
-        self._fitted_categories: Dict[str, List[str]] = {} # To store all possible categories
+        self._fitted_categories: Dict[str, List[str]] = {} # To store all possible categories of categorical features
         self.categorical_features_to_encode = self.config.CATEGORICAL_FEATURES.copy()
 
 
@@ -75,81 +74,116 @@ class DataProcessor:
 
 
     def fit(self, df_raw: pd.DataFrame):
-        """Learns all necessary statistics and schemas from the full training dataset."""
-        print("--- Fitting DataProcessor on training data ---")
+        """
+        Learns imputation values using a grouped strategy (by zip and size)
+        """
+        print("--- Fitting DataProcessor on data with Grouped Imputation ---")
+        
+        # Start with a clean slate of the necessary columns
         df = df_raw[self.config.INITIAL_FEATURE_COLS].copy()
         
+        # Clean the data first to get a reliable base for learning
         df = self._clean_and_filter(df, is_training=True)
 
-
-        # Learn ALL possible values of categorical feature from the full, cleaned dataset
+        # Engineer the 'size_range' feature which is the primary grouping key
         df['size_range'] = df['sqft'].apply(get_size_range)
-        for col in self.categorical_features_to_encode:
-            self._fitted_categories[col] = df[col].dropna().unique().tolist()
-        print(f"Learned categories for: {list(self._fitted_categories.keys())}")
+        
+        # --- Learn Grouped Imputation Values ---
+        grouping_keys = ['zip_code', 'size_range']
+        
+        # Features to impute with the group median
+        median_impute_cols = ['lot_sqft', 'year_built', 'list_price', 'estimated_value', 'llm_risk_score', 'tax', 'days_on_mls']
+        grouped_medians = df.groupby(grouping_keys)[median_impute_cols].median()
 
-        self.imputation_values = {
+        # Features to impute with the group mode
+        mode_impute_cols = ['beds', 'full_baths', 'half_baths', 'stories', 'parking_garage', 'neighborhoods', 'renovation_level']
+        grouped_modes = df.groupby(grouping_keys)[mode_impute_cols].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
+        
+        # --- Learn Global Fallback Imputation Values ---
+        global_fallbacks = {
+            'lot_sqft': df['lot_sqft'].median(),
+            'year_built': df['year_built'].median(),
             'beds': df['beds'].mode()[0],
             'full_baths': df['full_baths'].mode()[0],
             'half_baths': df['half_baths'].mode()[0],
-            'year_built': df['year_built'].mode()[0],
             'stories': df['stories'].mode()[0],
             'parking_garage': df['parking_garage'].mode()[0],
-            'lot_sqft': df['lot_sqft'].median(),
-            'hoa_fee': 0.0,
-            'neighborhoods': df['neighborhoods'].mode()[0],
-            'text': "",
-            'days_on_mls': df['days_on_mls'].median(),
-            'tax': df['tax'].median(),
+            'neighborhoods': 'Unknown',
+            'renovation_level': 'Unknown',
             'list_price': df['list_price'].median(),
             'estimated_value': df['estimated_value'].median(),
-            'llm_quality_score': 5,  # Neutral default if missing,
-            'llm_risk_score': df['llm_risk_score'].median()
+            'llm_quality_score': 2, # Conservative default
+            'llm_risk_score': df['llm_risk_score'].median(),
+            'tax': df['tax'].median(),
+            'days_on_mls': df['days_on_mls'].median(),
+            'hoa_fee': 0.0,
+            'text': ""
         }
-        
 
-        # Fit and Store Training Columns
-        # Perform a dry run on the clean (but unfiltered) data to get all possible columns
-        X_schema, _ = self.transform(df)
+        # --- Store all learned values in the instance dictionary ---
+        self.imputation_values = {
+            "grouped_medians": grouped_medians,
+            "grouped_modes": grouped_modes,
+            "global_fallbacks": global_fallbacks
+        }
+        print("Learned grouped and global fallback imputation values.")
+
+        # --- Learn Categorical Encodings ---
+        df_filled_for_fitting = df.fillna(self.imputation_values['global_fallbacks'])
+        for col in self.config.CATEGORICAL_FEATURES:
+            known_categories = df_filled_for_fitting[col].dropna().unique().tolist()
+            if 'Unknown' not in known_categories:
+                known_categories.append('Unknown')
+            self._fitted_categories[col] = known_categories
+        print(f"Learned categories for: {list(self._fitted_categories.keys())}")
+        
+        # --- Fit and Store Training Columns (Schema) ---
+        X_schema, _ = self.transform(df) # Use the original cleaned df for the dry run
         self.training_columns = X_schema.columns.tolist()
         print(f"--- DataProcessor fitting complete. Final schema has {len(self.training_columns)} features. ---")
 
-
     def transform(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-        """Transforms raw data into a model-ready feature matrix."""
+        """Transforms raw data into a model-ready feature matrix using grouped imputation."""
         df_transformed = df.copy()
+        
+        # --- Pre-computation and Initial Cleaning ---
+        df_transformed = self._clean_and_filter(df_transformed)
+        df_transformed['size_range'] = df_transformed['sqft'].apply(get_size_range)
+        
+        # --- Intelligent Imputation ---
 
-        # Impute missing values using LEARNED values
-        # Special fallback for estimated_value to use list_price first
-        df_transformed['estimated_value'] = df_transformed['estimated_value'].fillna(df_transformed['list_price'])
-        df_transformed.fillna(self.imputation_values, inplace=True)
+        # Set index for efficient joining
+        df_transformed = df_transformed.set_index(['zip_code', 'size_range'])
+        
+        # Fill NaNs by joining with the learned grouped stats
+        df_transformed.update(self.imputation_values['grouped_medians'], overwrite=False)
+        df_transformed.update(self.imputation_values['grouped_modes'], overwrite=False)
+        
+        # Reset index and apply global fallbacks for anything still missing
+        df_transformed.reset_index(inplace=True)
+        df_transformed.fillna(self.imputation_values['global_fallbacks'], inplace=True)
 
-        # Engineer Features
+        # --- Feature Engineering ---
         df_transformed['property_age'] = self.config.CURRENT_YEAR - df_transformed['year_built']
         df_transformed['total_baths'] = df_transformed['full_baths'] + (0.5 * df_transformed['half_baths'])
-        df_transformed['size_range'] = df_transformed['sqft'].apply(get_size_range)
-
-        print(df_transformed.columns)
-
-        # 3. One-Hot Encode using the LEARNED categories to ensure consistency
-        print("Applying one-hot encoding with learned categories on transform.")
-        for col, categories in self._fitted_categories.items():
-            df_transformed[col] = pd.Categorical(df_transformed[col], categories=categories)
-        df_transformed = pd.get_dummies(df_transformed, columns=self.categorical_features_to_encode, prefix=self.categorical_features_to_encode, dtype=int)
-        print(f"One-hot encoding complete. Data now has {df_transformed.shape[1]} columns.")
-
-
-        # Interaction Feature of sqft and LLM quality score
         df_transformed['sqft_x_quality_score'] = df_transformed['sqft'] * df_transformed['llm_quality_score']
 
-        # Final Feature Selection and Alignment
+        # --- One-Hot Encoding and Final Alignment ---
+        for col, categories in self._fitted_categories.items():
+            # Handle unseen categories before creating the categorical type
+            df_transformed[col] = df_transformed[col].apply(lambda x: x if x in categories else 'Unknown')
+            df_transformed[col] = pd.Categorical(df_transformed[col], categories=categories)
+            
+        df_transformed = pd.get_dummies(df_transformed, columns=self.config.CATEGORICAL_FEATURES, prefix_sep='_', dtype=int)
+
+
+        # Align to the final training schema
         if self.training_columns:
             X = df_transformed.reindex(columns=self.training_columns, fill_value=0)
-        else: # This path is only for the schema-defining dry run inside .fit()
-            base_features = self.config.BASE_MODEL_FEATURES.copy()
-            ohe_features = [col for col in df_transformed.columns if any(cat in col for cat in self.categorical_features_to_encode)]
+        else: # Dry run path
+            base_features = self.config.BASE_MODEL_FEATURES
+            ohe_features = [col for col in df_transformed.columns if any(cat in col for cat in self.config.CATEGORICAL_FEATURES)]
             final_feature_list = base_features + ohe_features
-
             X = df_transformed[[col for col in final_feature_list if col in df_transformed.columns]]
 
         y = df_transformed[self.config.TARGET_COLUMN] if self.config.TARGET_COLUMN in df_transformed.columns else None
@@ -191,10 +225,8 @@ class DataProcessor:
                 
                 df[col] = df[col].apply(safe_literal_eval)
 
-        # --- 3. Final Type Conversion and Formatting ---
-        # My Thought Process: Now that the data types are correct, we can convert
-        # the DataFrame to a list of dictionaries and handle any final formatting.
-        
+        # --- Final Type Conversion and Formatting ---
+        # convert the DataFrame to a list of dictionaries and handle any final formatting.
         # Replace any remaining Pandas-specific nulls (like NaT) with Python's None
         df = df.replace({np.nan: None, pd.NaT: None})
         

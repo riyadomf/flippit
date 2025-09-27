@@ -14,7 +14,7 @@ def load_resale_model():
         payload = joblib.load(settings.MODEL_PATH)
         model_store['model'] = payload['model']
         model_store['processor'] = payload['processor'] # Load the processor
-        print("V2 resale prediction model and data processor loaded successfully.")
+        print("resale prediction model and data processor loaded successfully.")
     except FileNotFoundError:
         print(f"FATAL ERROR: Model file '{settings.MODEL_PATH}' not found.")
         model_store['model'] = None

@@ -7,9 +7,8 @@ from tqdm import tqdm
 from config import settings
 from scoring_logic import analyze_description_with_llm # Re-use the API's logic
 
-# --- Configuration for our script ---
-# My Thought Process: Centralizing the file paths here allows us to easily select
-# which dataset to process based on a command-line argument.
+# --- Configuration for the script ---
+
 DATASET_CONFIG = {
     "sold": {
         "input_path": settings.SOLD_PROPERTIES_CSV,
@@ -32,8 +31,8 @@ def process_in_batches(input_filepath: str, output_filepath: str):
     print(f"Output file: {output_filepath}")
 
     # --- 1. Resumption Logic: Find Already Processed IDs ---
-    # My Thought Process: This is the key to making the script fail-safe and resumable.
-    # We check the output file first. If it exists, we know we've already done some work.
+    # make the script fail-safe and resumable.
+    # check the output file first. If it exists, start from the unprocessed ones.
     processed_ids = set()
     if os.path.exists(output_filepath):
         try:
@@ -57,8 +56,6 @@ def process_in_batches(input_filepath: str, output_filepath: str):
     print(f"Found {len(df_to_process)} new properties to analyze.")
     
     # --- 3. Batch Processing Loop ---
-    # My Thought Process: This loop is the core of the fail-safe mechanism.
-    # We process a small batch, then immediately save it before starting the next.
     for i in tqdm(range(0, len(df_to_process), BATCH_SIZE), desc="Overall Progress"):
         df_batch = df_to_process.iloc[i:i + BATCH_SIZE]
         
@@ -81,9 +78,6 @@ def process_in_batches(input_filepath: str, output_filepath: str):
         ], axis=1)
 
         # --- 4. Fail-Safe Save ---
-        # My Thought Process: This is the most critical line. 'mode="a"' appends to the
-        # file. 'header=not os.path.exists(output_filepath)' ensures the header is
-        # written only ONCE, when the file is first created.
         is_new_file = not os.path.exists(output_filepath)
         batch_enriched.to_csv(output_filepath, mode='a', header=is_new_file, index=False)
         
