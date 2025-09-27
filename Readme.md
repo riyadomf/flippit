@@ -1,5 +1,5 @@
-```uvicorn main:app --reload```
-```npm start```
+<!-- ```uvicorn main:app --reload```
+```npm start``` -->
 
 ---
 
