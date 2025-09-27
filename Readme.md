@@ -1,4 +1,4 @@
-<!-- ```uvicorn main:app --reload```
+<!-- ``````
 ```npm start``` -->
 
 ---
@@ -132,3 +132,157 @@ The latest and most powerful version of the scoring engine is a hybrid system th
     *   The final `assign_grade` function uses a risk-averse model that requires both a high ROI and a low final risk score to achieve a top grade, ensuring that only the most promising and safest deals are recommended to the user.
 
 
+
+
+### **5. Future Scope & Potential Enhancements**
+
+The following enhancements were on my plan.
+
+#### **Hyper-Local Geospatial Feature Engineering**
+
+*
+    **Amenity Proximity Analysis:** Integrate external data sources (e.g., Google Places API, OpenStreetMap). We will programmatically calculate features such as:
+    * Distance to the nearest highly-rated elementary school.
+    *   Distance to the nearest grocery store, park, and public transit stop.
+
+
+#### **School Data Integration**
+*   use powerful numerical features like:
+    * `avg_rating_nearby_schools`: The average rating of the 3 closest schools.
+    *   `distance_to_top_school`: The distance in miles to the nearest school with a rating of 8/10 or higher.
+
+#### **Computer Vision for Condition Analysis**
+
+*   especially valuable when the `text` description is sparse or misleading.
+
+#### **External Data for Comprehensive Risk Assessment**
+
+
+*  **Environmental Risk API Integration**
+
+
+### **6. System Architecture & End-to-End Pipeline**
+The end-to-end pipeline is executed in two distinct phases: an offline training phase and an online inference phase.
+
+**System Components:**
+
+1.  **Offline Processing**
+    *   `generate_llm_features.py`: It uses an LLM (via Ollama) to enrich raw property data with nuanced features.
+    *   `train_model.py`: It trains and saves the model.
+
+2.  **Backend API (`FastAPI`):** This is the core engine of the application.
+    *   It serves the pre-trained model and processor.
+    *   It exposes REST endpoints for the frontend to fetch the scored and filterable property data.
+
+3.  **Frontend Web Application (`React`):** This is the user interface.
+    *   Scores properties.
+    *   It fetches scored property data from the FastAPI backend.
+    *   It displays properties on an interactive map and as a filterable list of cards.
+
+
+**Data Flow:**
+
+
+1.  **Offline:** Raw CSVs -> `generate_llm_features.py` -> Enriched CSVs -> `train_model.py` -> saved model.
+2.  **Online:** User visits React App -> App calls FastAPI's `/properties` endpoint -> FastAPI queries its SQLite DB -> FastAPI returns JSON -> React App displays data.
+3.  **Background:** When user clicks score, FastAPI runs a background task -> Reads Enriched `for_sale`.csv -> Scores new properties -> Saves to SQLite DB.
+
+---
+
+### **7. Setup and Running the Application**
+
+Follow these steps to set up the environment and run the full Flippit application.
+
+#### **Prerequisites**
+
+*   Python 3.8+
+*   FastAPI
+*   Node.js and npm (for the frontend)
+*   Ollama installed and running.
+
+#### **Step 1: Install and Run the Local LLM (Ollama)**
+
+This application requires a running Ollama instance to perform the text analysis.
+
+1.  **Install Ollama:** Follow the official instructions at [ollama.com](https://ollama.com).
+
+2.  **Pull the Model:** Open your terminal and pull the Llama 3 model. This model provides an excellent balance of speed and analytical capability.
+    ```bash
+    ollama pull llama3
+    ```
+
+3.  **Verify It's Running:** Ensure the Ollama application is running in the background. You should see its icon in your system's menu bar or taskbar.
+
+#### **Step 2: Backend Setup & Model Training**
+
+This sequence prepares all the data and trains the predictive models.
+
+1.  **Clone the Repository and Install Dependencies:**
+    ```bash
+    git clone https://github.com/riyadomf/flippit.git
+    cd flippit
+
+    # start the fastapi server
+    cd backend
+
+    # create venv
+    python3 -m venv venv
+
+    # activate venv (for linux)
+    source ./venv/bin/activate
+    
+    # install dependencies
+    pip install -r requirements.txt
+    ```
+
+2.  **Generate LLM Features for Training Data:**
+    This is a one-time, time-consuming step. It will read `sold_properties.csv`, analyze each description with the LLM, and create `sold_properties_enriched.csv`.
+    ```bash
+    python generate_llm_features.py sold
+    ```
+
+3.  **Generate LLM Features for Inference Data:**
+    This script enriches the `for_sale_properties.csv` file, which the API will use for scoring.
+    ```bash
+    python generate_llm_features.py for_sale
+    ```
+
+4.  **Train the Resale Price Model:**
+    This script will load the enriched training data, train the XGBoost model, and save the final artifact.
+    ```bash
+    python train_model.py
+    ```
+
+#### **Step 3: Run the Backend API**
+
+1.  **Start the Server:**
+    This command starts the API on port 8000.
+    ```bash
+    # start server
+    uvicorn main:app --reload
+    ```
+
+3.  **Trigger Initial Scoring:**
+    * scoring can be done from UI
+
+    *   **Open your browser to:** `http://127.0.0.1:8000/docs` for API's interactive documentation
+    *   Find the `/process-scores` endpoint, click "Try it out," and then "Execute."
+
+#### **Step 4: Run the Frontend Application**
+
+React application is in the `frontend` sub-directory.
+
+1.  **Navigate to the Frontend Directory and Install Dependencies:**
+    ```bash
+    cd ../frontend 
+    npm install
+    ```
+
+2.  **Start the Development Server:**
+    This will launch the web page, which will automatically connect to your running backend API.
+    ```bash
+    npm start
+    ```
+
+3.  **View the Application:**
+    Open your web browser and navigate to **`http://localhost:3000`**. You should now see the Flippit web application and interact with backend api.
