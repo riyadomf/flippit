@@ -8,9 +8,9 @@ A comprehensive Exploratory Data Analysis was performed to understand the underl
 **Key Findings:**
 
 *   **Data Quality & Integrity:**
-    *   **Missing Values:** A substantial number of null values were identified in key predictive columns like `text`, `beds`, `tax`, and `hoa_fee` in the `sold_properties` dataset.
+    *   **Missing Values:** Identified a substantial number of null values in key predictive columns like `text`, `beds`, `tax`, and `hoa_fee` in the `sold_properties` dataset.
     *   **Duplicates:** The `for_sale_properties` dataset contained duplicate `property_id` entries, which were resolved by keeping only the most recent listing for each property.
-    *   **Outliers:** Extreme and unrealistic outliers were found in `price_per_sqft` (e.g., values below $20 or above $400). These were identified as likely data errors (e.g., family sales, teardown properties) and filtered out to prevent them from corrupting the model.
+    *   **Outliers:** Found some extreme and unrealistic outliers in `price_per_sqft` (e.g., values below $20 or above $400). These were identified as likely data errors (e.g., family sales, teardown properties) and filtered out to prevent them from corrupting the model.
 
 *   **Market Structure & Value Drivers:**
     *   **Price Distribution:** The distribution of `sold_price` was found to be bimodal, with distinct peaks around the **$150k** and **$250k** price points, suggesting two primary market segments.
@@ -53,7 +53,7 @@ The core of the model's predictive power comes from creating new, more informati
 
 2.  **Advanced Feature Creation (Hybrid ML + LLM):**
     *   **LLM-Powered Features:** An offline script uses an LLM to analyze the raw `text` description of each property, generating a structured set of features:
-        *   `llm_quality_score`: A 1-10 rating of the property's finishes and appeal. **This is the primary new feature for the ARV model.**
+        *   `llm_quality_score`: A 1-10 rating of the property's finishes and appeal. **This is the primary new feature for the ARV (After Resale Model).**
         *   `renovation_level`: A categorical assessment of the work needed.
         *   `llm_risk_score`: A 1-10 rating of investment risk based on textual red flags.
     *   **Interaction Features:** To help the model learn more complex patterns, interaction features were created:
@@ -87,17 +87,9 @@ The initial approach was a rule-based system (MVP).
 **Limitation:** This approach was rigid and could not capture the complex, non-linear relationships in the market. The keyword analysis was basic and missed significant nuance in the property descriptions.
 
 
-
-
-Excellent. You have perfectly summarized the "why" behind your V2 model. Now, let's weave that reasoning into a polished, professional narrative that you can include in your project's README file.
-
-This explanation is crafted to demonstrate your thought process, showing that you didn't just *use* a model, but you *engineered* a solution based on a deep understanding of the problem and the data.
-
----
-
 ### **V2: Machine Learning for Accurate Resale Price Prediction**
 
-To move beyond the limitations of initial rule-based system, the V1 heuristic for calculating resale price was replaced with a predictive machine learning model. The goal was to create a model that could learn the complex, non-linear patterns of the Warren real estate market to produce a highly accurate **After-Repair Value (ARV)** prediction.
+I replaced the V1 heuristic for calculating resale price with a predictive machine learning model. The goal was to create a model that could learn the complex, non-linear patterns of the Warren real estate market to produce a highly accurate **After-Repair Value (ARV)** prediction.
 
 
 #### **Model Selection: Gradient Boosting (XGBoost)**
@@ -109,10 +101,9 @@ The XGBoost model was deliberately chosen over simpler and more complex alternat
 
 
 
-
 #### **Feature Engineering: From Raw Data to Intelligent Signals**
 
-The performance of any machine learning model is dictated by the quality of its features. Raw data was transformed into intelligent signals for the model to learn from:
+I transformed Raw data into intelligent signals for the model to learn from:
 
 * **NLP-Driven Keyword Features:** To quantify the impact of a property's condition and finishes, the unstructured `text` description was processed. **Keyword flags** were engineered to create binary features such as `is_renovated` and `is_fixer_upper`. This allowed the model to learn the specific price premium associated with homes described as "updated" versus the discount for homes needing "TLC".
 
@@ -128,11 +119,10 @@ A specialized strategy was crucial because the model's primary goal is to predic
 
 
 #### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Final Approach)**
-#### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Final Approach)**
 
-The latest and most powerful version of the scoring engine is a hybrid system that combines the predictive power of XGBoost with the nuanced text understanding of a Large Language Model (LLM).
+Finally, I combined the predictive power of XGBoost with the nuanced text understanding of a Large Language Model (LLM).
 
-**The Core Insight:** A simple keyword-based system is brittle. An LLM, by contrast, understands the semantic difference between "needs a new kitchen faucet" (minor) and "needs a full kitchen remodel" (major). We leveraged this by using an LLM as an advanced feature engineering engine.
+**The Core Insight:** A simple keyword-based system has shortcomings. An LLM, by contrast, understands the semantic difference between "needs a new kitchen faucet" (minor) and "needs a full kitchen remodel" (major). I leveraged this by using an LLM as an advanced feature engineering engine.
 
 1.  **Offline LLM Feature Generation:**
     An offline script processes both the `sold_properties.csv` and `for_sale_properties.csv` datasets. Using a carefully crafted few-shot prompt, the LLM analyzes the `text` description of each property and outputs a structured JSON object containing:
@@ -147,7 +137,7 @@ The latest and most powerful version of the scoring engine is a hybrid system th
     *   At inference time, we ask the model a precise question: "What is the predicted price of this property if we **manually set its `llm_quality_score` to 9 (high-end) and its `renovation_level` to 'Cosmetic'**?" This simulation forces the model to predict the true ARV, resulting in a much more accurate and realistic resale price.
 
 3.  **Renovation Cost Estimation (LLM-Driven):**
-    *   The heuristic keyword model was replaced entirely. The `renovation_level` provided by the LLM is now mapped to a pre-defined cost-per-square-foot (`RENOVATION_COST_MAP`), resulting in a far more nuanced and context-aware cost estimate.
+    *   The heuristic keyword model was replaced entirely. The `renovation_level` provided by the LLM is now mapped to a pre-defined cost-per-square-foot (`RENOVATION_COST_MAP`), resulting in a far more context-aware cost estimate.
 
 4.  **Risk Assessment & Grading (Hybrid):**
     *   The `assess_risk` function now uses the `llm_risk_score` as its baseline, augmenting it with structured data points the LLM can't see (`days_on_mls`, `year_built`, etc.).
@@ -158,24 +148,24 @@ The latest and most powerful version of the scoring engine is a hybrid system th
 
 ### **5. Future Scope & Potential Enhancements**
 
-The following enhancements were on my plan.
+The following enhancements were in my plan.
 
 #### **Hyper-Local Geospatial Feature Engineering**
 
 *
     **Amenity Proximity Analysis:** Integrate external data sources (e.g., Google Places API, OpenStreetMap). We will programmatically calculate features such as:
     * Distance to the nearest highly-rated elementary school.
-    *   Distance to the nearest grocery store, park, and public transit stop.
+    * Distance to the nearest grocery store, park, and public transit stop.
 
 
 #### **School Data Integration**
 *   use powerful numerical features like:
     * `avg_rating_nearby_schools`: The average rating of the 3 closest schools.
-    *   `distance_to_top_school`: The distance in miles to the nearest school with a rating of 8/10 or higher.
+    * `distance_to_top_school`: The distance in miles to the nearest school with a rating of 8/10 or higher.
 
 #### **Computer Vision for Condition Analysis**
 
-*   especially valuable when the `text` description is sparse or misleading.
+*   Especially valuable when the `text` description is sparse or misleading.
 
 #### **External Data for Comprehensive Risk Assessment**
 
@@ -245,13 +235,13 @@ This sequence prepares all the data and trains the predictive models.
     git clone https://github.com/riyadomf/flippit.git
     cd flippit
 
-    # start the fastapi server
+    # start the FastAPI server
     cd backend
 
     # create venv
     python3 -m venv venv
 
-    # activate venv (for linux)
+    # activate venv (for Linux)
     source ./venv/bin/activate
     
     # install dependencies
@@ -286,7 +276,7 @@ This sequence prepares all the data and trains the predictive models.
     ```
 
 3.  **Trigger Initial Scoring:**
-    * scoring can be done from UI
+    * Scoring can be done from the UI
 
     *   **Open your browser to:** `http://127.0.0.1:8000/docs` for API's interactive documentation
     *   Find the `/process-scores` endpoint, click "Try it out," and then "Execute."
@@ -309,3 +299,9 @@ React application is in the `frontend` sub-directory.
 
 3.  **View the Application:**
     Open your web browser and navigate to **`http://localhost:3000`**. You should now see the Flippit web application and interact with backend api.
+
+
+screenshots:
+<img width="1762" height="994" alt="image" src="https://github.com/user-attachments/assets/2991c549-bedd-4cdc-9c05-63b87bf2c61f" />
+<img width="1762" height="994" alt="image" src="https://github.com/user-attachments/assets/d7026d16-78d5-4af3-ad91-111f4e25c925" />
+
