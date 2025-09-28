@@ -90,21 +90,46 @@ The initial approach was a rule-based system (MVP).
 
 **Limitation:** This approach was rigid and could not capture the complex, non-linear relationships in the market. The keyword analysis was basic and missed significant nuance in the property descriptions.
 
-#### **V2: Machine Learning for Price Prediction**
 
-Then I replaced the heuristic resale price calculation with a predictive machine learning model.
 
-*   **Model Selection: Gradient Boosting (XGBoost)**
-    The XGBoost model was deliberately chosen over simpler and more complex alternatives for several key reasons:
-    1.  **vs. Linear/Polynomial Regression:** Real estate value is not linear. Our EDA proved that the value of an extra square foot diminishes as a house gets larger. Linear models cannot capture this nuance, whereas a tree-based model like XGBoost excels at modeling complex, non-linear relationships and feature interactions (e.g., the value of an extra bathroom is higher in a 4-bedroom house than a 2-bedroom one).
-    2.  **vs. Neural Networks:** For the size and structure of our dataset (tabular CSV data), Gradient Boosting models consistently outperform Neural Networks. Neural Networks typically require much larger datasets to be effective and are more difficult to interpret.
 
-*   **Training, Validation, & Inference Strategy:**
-    The model's goal is to predict the **After-Repair Value (ARV)**. Therefore, simply training on all sold data is insufficient. A specialized validation strategy was employed:
-    1.  The model was **trained on the entire training dataset** to learn broad market patterns.
-    2.  It was **evaluated against a "Gold Standard" subset** of the holdout test data. This subset included only properties that were already in excellent, renovated condition (`is_fixer_upper=0`, `is_renovated=1`).
-    This ensures our key performance metric (Mean Absolute Error) accurately reflects the model's ability to predict the final price of a finished, desirable product.
-    3. During inference, I manipulated these condition features to indicate that the property is in great condition, recently renovated, and not fixer_upper 
+Excellent. You have perfectly summarized the "why" behind your V2 model. Now, let's weave that reasoning into a polished, professional narrative that you can include in your project's README file.
+
+This explanation is crafted to demonstrate your thought process, showing that you didn't just *use* a model, but you *engineered* a solution based on a deep understanding of the problem and the data.
+
+---
+
+### **V2: Machine Learning for Accurate Resale Price Prediction**
+
+To move beyond the limitations of initial rule-based system, the V1 heuristic for calculating resale price was replaced with a predictive machine learning model. The goal was to create a model that could learn the complex, non-linear patterns of the Warren real estate market to produce a highly accurate **After-Repair Value (ARV)** prediction.
+
+
+#### **Model Selection: Gradient Boosting (XGBoost)**
+The XGBoost model was deliberately chosen over simpler and more complex alternatives for several key reasons:
+1.  **vs. Linear/Polynomial Regression:** Real estate value is not linear. Our EDA proved that the value of an extra square foot diminishes as a house gets larger. Linear models cannot capture this nuance, whereas a tree-based model like XGBoost excels at modeling complex, non-linear relationships and feature interactions (e.g., the value of an extra bathroom is higher in a 4-bedroom house than a 2-bedroom one).
+2.  **vs. Neural Networks:** For the size and structure of our dataset (tabular CSV data), Gradient Boosting models consistently outperform Neural Networks. Neural Networks typically require much larger datasets to be effective and are more difficult to interpret.
+
+
+
+
+
+
+#### **Feature Engineering: From Raw Data to Intelligent Signals**
+
+The performance of any machine learning model is dictated by the quality of its features. Raw data was transformed into intelligent signals for the model to learn from:
+
+* **NLP-Driven Keyword Features:** To quantify the impact of a property's condition and finishes, the unstructured `text` description was processed. **Keyword flags** were engineered to create binary features such as `is_renovated` and `is_fixer_upper`. This allowed the model to learn the specific price premium associated with homes described as "updated" versus the discount for homes needing "TLC".
+
+#### **Training, Validation, & Inference Strategy**
+
+A specialized strategy was crucial because the model's primary goal is to predict the ARV, not just any sale price.
+
+*   **Training:** The model was trained on 80% of the `sold_properties.csv` dataset. This allowed it to learn the broad patterns of the entire market, including both renovated and unrenovated properties.
+
+*   **Gold Standard Validation:** The model's performance was evaluated against a carefully selected "Gold Standard" subset of the holdout test data. This subset included **only properties that were already in excellent, renovated condition** (where NLP flags indicated `is_fixer_upper=False` and `is_renovated=True`). This ensures our key performance metric, Mean Absolute Error (MAE), accurately reflects the model's ability to predict the final price of a finished, desirable product—the true definition of ARV.
+
+*   **Intelligent Inference:** When scoring a `for_sale` property, we aren't asking "What is this house worth now?" but rather, "What will this house be worth *after* we renovate it?" To achieve this, the input features for a for-sale property are **programmatically manipulated before prediction**. The `is_fixer_upper` flag is set to `0` and the `is_renovated` flag is set to `1`. This forces the model to predict the property's value as if it were in the ideal, renovated state it was trained to recognize from the "Gold Standard" data.
+
 
 #### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Latest Approach)**
 
