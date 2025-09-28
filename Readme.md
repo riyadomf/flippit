@@ -128,6 +128,7 @@ A specialized strategy was crucial because the model's primary goal is to predic
 
 
 #### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Final Approach)**
+#### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Final Approach)**
 
 The latest and most powerful version of the scoring engine is a hybrid system that combines the predictive power of XGBoost with the nuanced text understanding of a Large Language Model (LLM).
 
