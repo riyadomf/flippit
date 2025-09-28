@@ -1,7 +1,3 @@
-<!-- ``````
-```npm start``` -->
-
----
 
 ## Flippit: A Hybrid ML & LLM Real Estate Scoring Engine
 
@@ -131,7 +127,7 @@ A specialized strategy was crucial because the model's primary goal is to predic
 *   **Intelligent Inference:** When scoring a `for_sale` property, we aren't asking "What is this house worth now?" but rather, "What will this house be worth *after* we renovate it?" To achieve this, the input features for a for-sale property are **programmatically manipulated before prediction**. The `is_fixer_upper` flag is set to `0` and the `is_renovated` flag is set to `1`. This forces the model to predict the property's value as if it were in the ideal, renovated state it was trained to recognize from the "Gold Standard" data.
 
 
-#### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Latest Approach)**
+#### **V3: The Hybrid Approach - Augmenting ML with LLM Intelligence (Final Approach)**
 
 The latest and most powerful version of the scoring engine is a hybrid system that combines the predictive power of XGBoost with the nuanced text understanding of a Large Language Model (LLM).
 
