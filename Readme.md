@@ -89,7 +89,7 @@ The initial approach was a rule-based system (MVP).
 **Limitation:** This approach was rigid and could not capture the complex, non-linear relationships in the market. The keyword analysis was basic and missed significant nuance in the property descriptions.
 
 
-### **V2: Machine Learning for Accurate Resale Price Prediction**
+#### **V2: Machine Learning for Accurate Resale Price Prediction**
 
 I replaced the V1 heuristic for calculating resale price with a predictive machine learning model. The goal was to create a model that could learn the complex, non-linear patterns of the Warren real estate market to produce a highly accurate **After-Repair Value (ARV)** prediction.
 
